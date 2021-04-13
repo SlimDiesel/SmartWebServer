@@ -26,20 +26,20 @@ extern NVS nv;
   bool stationEnabled     = false;
   bool stationDhcpEnabled = true;
 
-  char wifi_sta_ssid[40] = "";
-  char wifi_sta_pwd[40] = "";
+  char wifi_sta_ssid[40] = STA_SSID;
+  char wifi_sta_pwd[40] = STA_PASSWORD;
 
-  IPAddress wifi_sta_ip = IPAddress IP_ADDRESS;
-  IPAddress wifi_sta_gw = IPAddress GATEWAY_ADDRESS;
-  IPAddress wifi_sta_sn = IPAddress SUBNET;
+  IPAddress wifi_sta_ip = IPAddress STA_IP_ADDR;
+  IPAddress wifi_sta_gw = IPAddress STA_GW_ADDR;
+  IPAddress wifi_sta_sn = IPAddress STA_SN_MASK;
 
-  char wifi_ap_ssid[40] = "ONSTEP";
-  char wifi_ap_pwd[40] = "password";
-  byte wifi_ap_ch = 7;
+  char wifi_ap_ssid[40] = AP_SSID;
+  char wifi_ap_pwd[40] = AP_PASSWORD;
+  byte wifi_ap_ch = AP_CHANNEL;
 
-  IPAddress wifi_ap_ip = IPAddress IP_ADDRESS_AP;
-  IPAddress wifi_ap_gw = IPAddress GATEWAY_AP;
-  IPAddress wifi_ap_sn = IPAddress SUBNET_AP;
+  IPAddress wifi_ap_ip = IPAddress AP_IP_ADDR;
+  IPAddress wifi_ap_gw = IPAddress AP_GW_ADDR;
+  IPAddress wifi_ap_sn = IPAddress AP_SN_MASK;
 
   #if STANDARD_COMMAND_CHANNEL == ON
     WiFiServer cmdSvr(9999);
@@ -59,6 +59,9 @@ extern NVS nv;
   }
 
   void wifiInit(void) {
+    WiFi.disconnect();
+    WiFi.softAPdisconnect(true);
+
     if (nv.readI(EE_KEY_HIGH) != NV_KEY_HIGH || nv.readI(EE_KEY_LOW) != NV_KEY_LOW) {
       VLF("WEM: bad NV key, reset Wifi defaults");
       nv.update(EE_AP_EN, (int16_t)accessPointEnabled);
