@@ -19,10 +19,11 @@ extern Tasks tasks;
 int webTimeout = TIMEOUT_WEB;
 int cmdTimeout = TIMEOUT_CMD;
 
+
 void serialBegin(long baudRate, int swap) {
   static bool firstRun = true;
   if (SERIAL_BAUD_DEFAULT == SERIAL_BAUD && (swap == ON || swap == OFF) && !firstRun) return;
-  if (!firstRun) Ser.end();
+  if (!firstRun) SERIAL_ONSTEP.end();
   firstRun = false;
   if (swap == ON || swap == AUTO_ON) swap = 1; else swap = 0;
   #ifdef ESP32
@@ -30,24 +31,24 @@ void serialBegin(long baudRate, int swap) {
     // not swapped: TX and RX on default pins
     //     swapped: TX on gpio 5 and RX on gpio 23
     if (swap) { 
-        VLF("WEM: Attempting connect on swapped port");
+        VLF("SWS: Attempting connect on swapped port");
         delay(500);
-        Ser.begin(baudRate, SERIAL_8N1, 23, 5); 
+        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, 23, 5); 
       } else {
-        VLF("WEM: Attempting connect on non-swapped port");
+        VLF("SWS: Attempting connect on non-swapped port");
         delay(500);
-        Ser.begin(baudRate, SERIAL_8N1, 1, 3);
+        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, 1, 3);
       }
   #else
-    VF("WEM: Set baud rate to "); VL(baudRate);
-    Ser.begin(baudRate);
+    VF("SWS: Set baud rate to "); VL(baudRate);
+    SERIAL_ONSTEP.begin(baudRate);
     #ifdef ESP8266
       if (swap) {
-        VLF("WEM: Attempting connect on swapped port");
+        VLF("SWS: Attempting connect on swapped port");
         delay(500);
-        Ser.swap();
+        SERIAL_ONSTEP.swap();
       } else {
-        VLF("WEM: Attempting connect on non-swapped port");
+        VLF("SWS: Attempting connect on non-swapped port");
       }
     #endif
   #endif
@@ -64,13 +65,13 @@ const char* highSpeedCommsStr(long baud) {
 
 char serialRecvFlush() {
   char c = 0;
-  while (Ser.available() > 0) c = Ser.read();
+  while (SERIAL_ONSTEP.available() > 0) c = SERIAL_ONSTEP.read();
   return c;
 }
 
 void clearSerialChannel() {
   for (int i = 0; i < 3; i++) {
-    Ser.print(":#");
+    SERIAL_ONSTEP.print(":#");
     #if LED_STATUS == ON
       digitalWrite(LED_STATUS_PIN, LED_STATUS_OFF_STATE);
     #endif
@@ -84,15 +85,31 @@ void clearSerialChannel() {
   }
 }
 
+#ifdef ESP32
+  SemaphoreHandle_t xMutex;
+#endif
+
 // smart LX200 aware command and response over serial
 bool processCommand(const char* cmd, char* response, long timeOutMs) {
-  Ser.setTimeout(timeOutMs);
+
+  #ifdef ESP32
+    // create the mutex automatically
+    static bool firstCall = true;
+    if (firstCall) {
+      xMutex = xSemaphoreCreateMutex();
+      firstCall = false;
+    }
+
+    xSemaphoreTake(xMutex, portMAX_DELAY);
+  #endif
+
+  SERIAL_ONSTEP.setTimeout(timeOutMs);
   
   // clear the read/write buffers
   serialRecvFlush();
 
   // send the command
-  Ser.print(cmd);
+  SERIAL_ONSTEP.print(cmd);
 
   response[0] = 0;
   bool noResponse = false;
@@ -123,31 +140,31 @@ bool processCommand(const char* cmd, char* response, long timeOutMs) {
     if (cmd[1] == 'R') {
       if (strchr("AEGCMS0123456789", cmd[2])) noResponse = true;
     } else
-    if (cmd[1]=='S') {
+    if (cmd[1] == 'S') {
       if (strchr("CLSGtgMNOPrdhoTBX", cmd[2])) shortResponse = true;
     } else
-    if (cmd[1]=='L') {
+    if (cmd[1] == 'L') {
       if (strchr("BNCDL!",cmd[2])) noResponse = true;
       if (strchr("o$W", cmd[2])) { shortResponse = true; if (timeOutMs < 1000) timeOutMs = 1000; }
     } else
-    if (cmd[1]=='B') {
+    if (cmd[1] == 'B') {
       if (strchr("+-", cmd[2])) noResponse = true;
     } else
-    if (cmd[1]=='C') {
+    if (cmd[1] == 'C') {
       if (strchr("S", cmd[2])) noResponse = true;
     } else
-    if (cmd[1]=='h') {
+    if (cmd[1] == 'h') {
       if (strchr("FC", cmd[2])) { noResponse = true; if (timeOutMs < 1000) timeOutMs = 1000; }
       if (strchr("QPR", cmd[2])) { shortResponse = true; if (timeOutMs < 300) timeOutMs = 300; }
     } else
-    if (cmd[1]=='T') {
+    if (cmd[1] == 'T') {
       if (strchr("QR+-SLK", cmd[2])) noResponse = true;
       if (strchr("edrn", cmd[2])) shortResponse = true;
     } else
-    if (cmd[1]=='U') {
+    if (cmd[1] == 'U') {
       noResponse = true; 
     } else
-    if (cmd[1]=='W') {
+    if (cmd[1] == 'W') {
       if (strchr("R", cmd[2])) {
         if (strchr("+-", cmd[3])) shortResponse = true; else noResponse = true; // WR+ WR- else WR
       }
@@ -165,23 +182,32 @@ bool processCommand(const char* cmd, char* response, long timeOutMs) {
   unsigned long timeout = millis()+(unsigned long)timeOutMs;
   if (noResponse) {
     response[0] = 0;
+    #ifdef ESP32
+      xSemaphoreGive(xMutex);
+    #endif
     return true;
   } else
   if (shortResponse) {
     while ((long)(timeout - millis()) > 0) {
-      if (Ser.available()) { response[Ser.readBytes(response, 1)] = 0; break; }
+      if (SERIAL_ONSTEP.available()) { response[SERIAL_ONSTEP.readBytes(response, 1)] = 0; break; }
     }
+    #ifdef ESP32
+      xSemaphoreGive(xMutex);
+    #endif
     return (response[0] != 0);
   } else {
     // get full response, '#' terminated
     int responsePos = 0;
     char b = 0;
     while ((long)(timeout - millis()) > 0 && b != '#') {
-      if (Ser.available()) {
-        b = Ser.read();
+      if (SERIAL_ONSTEP.available()) {
+        b = SERIAL_ONSTEP.read();
         response[responsePos] = b; responsePos++; if (responsePos > 39) responsePos = 39; response[responsePos] = 0;
       }
     }
+    #ifdef ESP32
+      xSemaphoreGive(xMutex);
+    #endif
     return (response[0] != 0);
   }
 }
@@ -207,7 +233,7 @@ bool commandEcho(const char* command) {
 
 bool commandBool(const char* command) {
   char response[40] = "";
-  bool success = processCommand(command,response,webTimeout);
+  bool success = processCommand(command, response, webTimeout);
   int l = strlen(response) - 1; if (l >= 0 && response[l] == '#') response[l] = 0;
   if (!success) return false;
   if (response[1] != 0) return false;
@@ -216,7 +242,7 @@ bool commandBool(const char* command) {
 
 char *commandString(const char* command) {
   static char response[40] = "";
-  bool success = processCommand(command,response,webTimeout);
+  bool success = processCommand(command, response, webTimeout);
   int l = strlen(response) - 1; if (l >= 0 && response[l] == '#') response[l] = 0;
   if (!success) strcpy(response,"?");
   return response;

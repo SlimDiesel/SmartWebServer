@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------------
 // BLE Gamepad support
-// by Drew
+// by Drew Bolce'
 
 #include <Arduino.h>
 #include "../../Constants.h"
@@ -12,25 +12,25 @@
   #include "../debug/Debug.h"
   #include "../pinmaps/Models.h"
   #include <BLEDevice.h>
+  #include "../commands/Commands.h"
   #include "../status/MountStatus.h"
 
   // ===== GamePad Button Assignments =====
-  #define LOW_TRIGGER       ":F-#"
-  #define UPR_TRIGGER       ":F+#"
-  #define BUTTON_A          0x01
-  #define BUTTON_B          ":Mp#"  // Spiral search
-  #define BUTTON_C          ":R4#"  // rate 4 = 4x
-  #define BUTTON_D          ":R8#"  // rate 8 = 48x
+  // commands are blind unless otherwise noted, though only commandBlind() is used to process these since
+  // it is ESP32 thread safe (unlike commandBool() etc.) and still reads any response as appropriate.
+  #define FOCUS_IN          ":F-#"
+  #define FOCUS_OUT         ":F+#"
+  #define SPIRAL            ":Mp#"  // Spiral search
   #define FOCUS_LOW         ":FS#"
   #define FOCUS_HIGH        ":FF#"
   #define FOCUS_STOP        ":FQ#"
-  #define PARK              ":hP#"
-  #define UNPARK            ":hR#"
-  #define TRACK_ON          ":Te#"   // Tracking enable
-  #define TRACK_OFF         ":Td#"   // Tracking disable
+  #define PARK              ":hP#"     // returns 0 or 1
+  #define UNPARK            ":hR#"     // returns 0 or 1
+  #define TRACK_ON          ":Te#"     // returns 0 or 1
+  #define TRACK_OFF         ":Td#"     // returns 0 or 1
   #define STOP_ALL          ":Q#"
-  #define BEEP              ":SX97,0#"
-  #define GOTO_CURRENT      ":MS#"
+  #define BEEP              ":SX97,0#" // returns 0 or 1
+  #define GOTO_CURRENT      ":MS#"     // returns numeric code
 
   #define TaskStackSize     4096
 
@@ -194,14 +194,10 @@
           VrBoxData[VB_BTNAB] = pData[0];
           if (HandleAB)
             vTaskResume(HandleAB);
-
-          // restart the parking push delay timer
-          longTimer = millis() + PARKTIMER;          
         }
         else
         {
           // C/D button report, wake the C/D button handler task
-          // VLF("Wake the C/D button handler task");
           VrBoxData[VB_BTNCD] = pData[0];
           if (HandleCD)
             vTaskResume(HandleCD);
@@ -219,7 +215,7 @@
     {
       scanTimer = 0;                                          // reinitalize the scan timer
       digitalWrite(LED_STATUS_PIN, LED_STATUS_ON_STATE);      // indicate connected
-      VLF("WEM: BLE GamePad Connected");
+      VLF("SWS: BLE GamePad Connected");
       mountStatus.update(false);
     }
 
@@ -228,7 +224,7 @@
       havedevice = false;
       Connected = false;
       digitalWrite(LED_STATUS_PIN, LED_STATUS_OFF_STATE);     // indicate disconnected
-      VLF("WEM: BLE GamePad Disconnected");
+      VLF("SWS: BLE GamePad Disconnected");
       scanTimer = millis() + SCANTIMER;                       // restart the scan timer
     }
   };
@@ -347,105 +343,104 @@
       y = (int8_t)VrBoxData[VB_JOYY];
       triggers = VrBoxData[VB_TRIGGERS];
 
-      if (pressedOnce)
+      if (pressedOnce && !timerReturn)
       {
         pressedOnce = false;
         continue;
       }
 
       if (triggers & VB_LOW_TRIGGER)
-      {
-        // the lower trigger button is pressed
-        if (FocusSpd)
+    {
+      // the lower trigger button is pressed
+      if (FocusSpd)
         {
-          Ser.print(FOCUS_HIGH); 
+          commandBlind(FOCUS_HIGH); 
           FocusSpd = false;
         }
-        else Ser.print(FOCUS_LOW); 
-          
-        Ser.print(LOW_TRIGGER);         
-        triggerPress = true;
-        pressedOnce = true;
-        continue;
-      }
-        
-      if (triggers & VB_UPR_TRIGGER)
-      {
-        // the upper trigger button is pressed
-        if (FocusSpd)
-          {
-            Ser.print(FOCUS_HIGH); 
-            FocusSpd = false;
-          }
-        else Ser.print(FOCUS_LOW);  
+      else commandBlind(FOCUS_LOW); 
+      commandBlind(FOCUS_IN);         
+      triggerPress = true;
+      pressedOnce = true;
+      continue;
+    }
       
-        Ser.print(UPR_TRIGGER);         
-        triggerPress = true;
-        pressedOnce = true;
-        continue;
-      }
-        
-      if (y < -JoyStickDeadZone)
-      {
-        // move North
-        if (!movingNorth) 
+    if (triggers & VB_UPR_TRIGGER)
+    {
+      // the upper trigger button is pressed
+      if (FocusSpd)
         {
-          movingNorth = true;
-          Ser.print(":Mn#");
+           commandBlind(FOCUS_HIGH); 
+          FocusSpd = false;
         }
-      }
-      else if (y > JoyStickDeadZone)
+      else commandBlind(FOCUS_LOW);  
+     
+      commandBlind(FOCUS_OUT);         
+      triggerPress = true;
+      pressedOnce = true;
+      continue;
+    }
+       
+    if (y < -JoyStickDeadZone)
+    {
+      // move North
+      if (!movingNorth) 
       {
-        // move South
-        if (!movingSouth) 
-        {
-          movingSouth = true;
-          Ser.print(":Ms#");
-        }
+        movingNorth = true;
+        commandBlind(":Mn#");
       }
-      if (x < -JoyStickDeadZone)
+    }
+    else if (y > JoyStickDeadZone)
+    {
+      // move South
+      if (!movingSouth) 
       {
-        // move East
-        if (!movingEast) 
-        {
-          movingEast = true;
-          Ser.print(":Me#");
-        }
+        movingSouth = true;
+        commandBlind(":Ms#");
       }
-      else if (x > JoyStickDeadZone)
+    }
+    if (x < -JoyStickDeadZone)
+    {
+      // move East
+      if (!movingEast) 
       {
-        // move West
-        if (!movingWest) 
-        {
-          movingWest = true;
-          Ser.print(":Mw#");
-        }
-      }
-    
-      if (triggerPress && (VrBoxData[VB_TRIGGERS] == 0))
-      {
-        pushTimer = 0;
-        triggerPress = false;   
-        FocusSpd = false;
-        Ser.print(FOCUS_STOP);          
-        continue;          
-      }
-              
-      // joystick has been centered for JOYTIMEOUT ms 
-      if (timerReturn) 
-      {
-        if ((JoyStickDeadZone == 0) && (movingNorth || movingSouth || movingEast || movingWest))
+        movingEast = true;
+        commandBlind(":Me#");
+       }
+     }
+     else if (x > JoyStickDeadZone)
+     {
+       // move West
+       if (!movingWest) 
+       {
+         movingWest = true;
+         commandBlind(":Mw#");
+       }
+     }
+  
+    if (triggerPress && (VrBoxData[VB_TRIGGERS] == 0))
+    {
+       pushTimer = 0;
+       triggerPress = false;   
+       FocusSpd = false;
+       commandBlind(FOCUS_STOP);          
+       continue;          
+     }
+            
+// joystick has been centered for JOYTIMEOUT ms 
+     if (timerReturn) 
+     {
+      if ((JoyStickDeadZone == 0) && (movingNorth || movingSouth || movingEast || movingWest))
         {
           movingNorth = false; 
           movingSouth = false; 
           movingEast = false; 
           movingWest = false;                                  
           timerReturn = false;
-          Ser.print(STOP_ALL);          
+          commandBlind(STOP_ALL);          
         }        
-      }
-    }
-  } 
+     }
+  }
+} 
   // End of taskJoyStick
 
   //******************************************************************************
@@ -466,8 +461,8 @@
 
       if (buttons & VB_BUTTON_A)
       {
-        Ser.print(GOTO_CURRENT);
-        Ser.print(BEEP);    
+        commandBlind(GOTO_CURRENT);
+        commandBlind(BEEP);
       }
 
       if (buttons & VB_BUTTON_B)
@@ -477,14 +472,12 @@
         if (SpiralInProgess == false)
           {
             SpiralInProgess = true;
-            Ser.print(BUTTON_B);
+            commandBlind(SPIRAL);
           }
         else
           {
             SpiralInProgess = false; 
-            Ser.print(BUTTON_B);
-            delay(100);
-            Ser.print(STOP_ALL);
+            commandBlind(STOP_ALL);
           }
       }
     }
@@ -515,39 +508,38 @@
       
       if (VB_BUTTON_M == buttons)
       {
-          mountStatus.update(false);
+        mountStatus.update(false);
 
-      // emergency stop
-      if (mountStatus.slewing())
-      {   
-        Ser.print(STOP_ALL); 
-        continue;
+        // emergency stop
+        if (mountStatus.slewing())
+        {   
+          commandBlind(STOP_ALL);
+          continue;
+        }
+        else if (mountStatus.atHome() && !mountStatus.tracking())
+        {
+          commandBlind(TRACK_ON);
+        }        
+        else if (mountStatus.parked())
+        {
+          commandBlind(UNPARK);
+        }
+        else if (!mountStatus.parked())
+        {
+          commandBlind(PARK);            
+          commandBlind(BEEP);     
+        }
       }
-      
-      else if (mountStatus.atHome() && !mountStatus.tracking())
-      {
-        Ser.print(TRACK_ON);
-      }        
-      else if (mountStatus.parked())
-      {
-        Ser.print(UNPARK);         
-      }
-      else if (!mountStatus.parked())
-      {
-        Ser.print(PARK);
-        Ser.print(BEEP);               
-      }
-    }
 
       if (buttons & VB_BUTTON_C)
       {
         // button C pressed
         CDpressedOnce = true; 
         (activeGuideRate--);
-        if (activeGuideRate<4)  activeGuideRate=4;
-        if (activeGuideRate>10) activeGuideRate=10;
-        char cmd[5]= ":Rn#"; cmd[2] = '0' + activeGuideRate - 1;
-        Ser.print(cmd);
+        if (activeGuideRate < 4)  activeGuideRate = 4;
+        if (activeGuideRate > 10) activeGuideRate = 10;
+        char cmd[5] = ":Rn#"; cmd[2] = '0' + activeGuideRate - 1;
+        commandBlind(cmd);
       }
 
       if (buttons & VB_BUTTON_D)
@@ -555,10 +547,10 @@
         // button D pressed
         CDpressedOnce = true; 
         (activeGuideRate++);
-        if (activeGuideRate<4)  activeGuideRate=4;
-        if (activeGuideRate>10) activeGuideRate=10;
-        char cmd[5]= ":Rn#"; cmd[2] = '0' + activeGuideRate - 1;
-        Ser.print(cmd);
+        if (activeGuideRate < 4)  activeGuideRate = 4;
+        if (activeGuideRate > 10) activeGuideRate = 10;
+        char cmd[5] = ":Rn#"; cmd[2] = '0' + activeGuideRate - 1;
+        commandBlind(cmd);
       }
     } 
   }
@@ -592,7 +584,7 @@
 
       // restart the scan timer
       scanTimer = millis() + SCANTIMER;
-      VLF("WEM: Scanning for BLE GamePad");
+      VLF("SWS: Scanning for BLE GamePad");
     }
   }
   // End of DoScan.
@@ -622,9 +614,11 @@
   void bleSetup()
   {
     My_BLE_Address = BLE_GP_ADDR;
-    My_BLE_Address1 = BLE_GP_ADDR1;  
+    My_BLE_Address1 = BLE_GP_ADDR1;
+    joyTimer = 0;  
+    pushTimer = 0;
 
-    BaseType_t xReturned;
+    VLF("SWS: Starting BLE GamePad Services");    BaseType_t xReturned;
 
     // create tasks to handle the joystick and buttons
     xReturned = xTaskCreate(taskJoyStick,             // task to handle activity on the joystick.
@@ -672,20 +666,18 @@
       // restart the scan timer
       scanTimer = millis() + SCANTIMER;
     }
-      
-    bleConnTest();
 
-    VLF("WEM: Starting BLE GamePad"); 
+//    VLF("SWS: Starting BLE GamePad");      
+    bleConnTest(); 
   }
   // End of bleSetup.
 
   void bleTimers() 
   {
     // joystick no activity detector
-      
     if (Connected)
     {
-      if (joyTimer && (joyTimer < millis()))
+      if (joyTimer && (joyTimer < millis()) && (movingNorth || movingSouth || movingEast || movingWest))
       {
         // no joystick notification for JOYTIMEOUT mS, center the joystick
         VrBoxData[VB_JOYX] = VrBoxData[VB_JOYY] = 0;
@@ -695,16 +687,16 @@
         joyTimer = 0;
       }
             
-      if (pushTimer && (pushTimer < millis()))
+      if (pushTimer && (pushTimer < millis()) && triggerPress)
       {
         // Focus button held down for FOCUSTIMER, speed up
         FocusSpd = true;
         // wake up the joystick task
-        timerReturn = true;
+        timerReturn = true;      
         vTaskResume(HandleJS);
         pushTimer = 0;          
       }
-      else FocusSpd = false;
+//      else FocusSpd = false;
     }
   }
   // end of bleTimers

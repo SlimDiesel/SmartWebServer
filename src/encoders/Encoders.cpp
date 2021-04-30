@@ -12,6 +12,7 @@ extern NVS nv;
 
 #include "../status/MountStatus.h"
 #include "../commands/Commands.h"
+#include "../misc/Misc.h"
 #include "Encoders.h"
 
 #if defined(ESP8266) || defined(ESP32)
@@ -47,37 +48,8 @@ int32_t Axis2EncDiffAbs     = 0;
   long Axis1EncProp = 10;
   long Axis1EncMinGuide = 100;
 
-  // timing related
-  volatile uint32_t T0 = 0;
-  volatile uint32_t T1 = 0;
-  volatile uint32_t Telapsed = 0;
-
-  #define MIN_ENC_PERIOD 0.2
-  #define MAX_ENC_PERIOD 5.0
   float arcSecondsPerTick = (1.0/Axis1EncTicksPerDeg)*3600.0; // (0.0018)*3600 = 6.48
   float usPerTick = (arcSecondsPerTick/15.041)*1000000.0;     // 6.48/15.041 = 0.4308 seconds per tick
-
-  unsigned long msPerTickMax = (arcSecondsPerTick/15.041)*1000.0*MAX_ENC_PERIOD;
-  #if AXIS1_ENC_BIN_AVG > 0
-    volatile uint32_t usPerBinTickMin = (double)usPerTick*(double)AXIS1_ENC_BIN_AVG*MIN_ENC_PERIOD;
-    volatile uint32_t usPerBinTickMax = (double)usPerTick*(double)AXIS1_ENC_BIN_AVG*MAX_ENC_PERIOD;
-  #endif
-  #if defined(ESP8266) || defined(ESP32)
-    volatile uint32_t clocksPerTickMin = (double)usPerTick*(double)ESP.getCpuFreqMHz()*MIN_ENC_PERIOD;
-    volatile uint32_t clocksPerTickMax = (double)usPerTick*(double)ESP.getCpuFreqMHz()*MAX_ENC_PERIOD;
-    #define GetClockCount ESP.getCycleCount()
-    #define ClockCountToMicros ((uint32_t)ESP.getCpuFreqMHz())
-  #elif defined(__MK20DX256__)
-    volatile uint32_t clocksPerTickMin = (double)usPerTick*(double)(F_CPU/1000000L)*MIN_ENC_PERIOD;
-    volatile uint32_t clocksPerTickMax = (double)usPerTick*(double)(F_CPU/1000000L)*MAX_ENC_PERIOD;
-    #define GetClockCount ARM_DWT_CYCCNT
-    #define ClockCountToMicros (F_CPU/1000000L)
-  #else
-    volatile uint32_t clocksPerTickMin = (double)usPerTick*MIN_ENC_PERIOD;
-    volatile uint32_t clocksPerTickMax = (double)usPerTick*MAX_ENC_PERIOD;
-    #define GetClockCount micros()
-    #define ClockCountToMicros (1L)
-  #endif
   
   // averages & rate calculation
   volatile long Axis1EncStaSamples = 20;
@@ -118,7 +90,7 @@ int32_t Axis2EncDiffAbs     = 0;
 
 void Encoders::init() { 
   if (nv.readI(EE_KEY_HIGH) != NV_KEY_HIGH || nv.readI(EE_KEY_LOW) != NV_KEY_LOW) {
-    VLF("WEM: bad NV key, reset Encoder defaults");
+    VLF("SWS: bad NV key, reset Encoder defaults");
     nv.write(EE_ENC_AUTO_SYNC, (int16_t)ENC_AUTO_SYNC_DEFAULT);
 
     nv.write(EE_ENC_A1_DIFF_TO,(int32_t)AXIS1_ENC_DIFF_LIMIT_TO);
@@ -141,7 +113,7 @@ void Encoders::init() {
   }
 
   #if ENCODERS == ON
-    VLF("WEM: NV reading Encoder settings");
+    VLF("SWS: NV reading Encoder settings");
     if (ENC_AUTO_SYNC_MEMORY == ON) encAutoSync = nv.readI(EE_ENC_AUTO_SYNC);
     Axis1EncDiffTo = nv.readL(EE_ENC_A1_DIFF_TO);
     Axis2EncDiffTo = nv.readL(EE_ENC_A2_DIFF_TO);
@@ -159,7 +131,7 @@ void Encoders::init() {
     #if AXIS1_ENC_RATE_CONTROL == ON
       Axis1EncStaSamples = nv.readL(EE_ENC_RC_STA);
       Axis1EncLtaSamples = nv.readL(EE_ENC_RC_LTA);
-      long l = nv.readLong(EE_ENC_RC_RCOMP);
+      long l = nv.readL(EE_ENC_RC_RCOMP);
       axis1EncRateComp = (float)l/1000000.0;
       #if AXIS1_ENC_INTPOL_COS == ON
         Axis1EncIntPolPhase = nv.readL(EE_ENC_RC_INTP_P);
@@ -175,36 +147,42 @@ void Encoders::init() {
   void Encoders::syncFromOnStep() {
     if (Axis1EncDiffFrom == OFF || fabs(_osAxis1 - _enAxis1) <= (double)(Axis1EncDiffFrom/3600.0)) {
       if (Axis1EncRev == ON)
-        axis1Pos.write(-_osAxis1*(double)Axis1EncTicksPerDeg);
+        axis1Pos.write(-_osAxis1*Axis1EncTicksPerDeg);
       else
-        axis1Pos.write(_osAxis1*(double)Axis1EncTicksPerDeg);
+        axis1Pos.write(_osAxis1*Axis1EncTicksPerDeg);
     }
     if (Axis2EncDiffFrom == OFF || fabs(_osAxis2 - _enAxis2) <= (double)(Axis2EncDiffFrom/3600.0)) {
       if (Axis2EncRev == ON)
-        axis2Pos.write(-_osAxis2*(double)Axis2EncTicksPerDeg);
+        axis2Pos.write(-_osAxis2*Axis2EncTicksPerDeg);
       else
-        axis2Pos.write(_osAxis2*(double)Axis2EncTicksPerDeg);
+        axis2Pos.write(_osAxis2*Axis2EncTicksPerDeg);
     }
   }
 
   #ifdef ENC_HAS_ABSOLUTE
     void Encoders::zeroFromOnStep() {
       #ifdef ENC_HAS_ABSOLUTE_AXIS1
-        axis1Pos.write(_osAxis1*(double)Axis1EncTicksPerDeg);
+        if (Axis1EncRev == ON)
+          axis1Pos.write(-_osAxis1*Axis1EncTicksPerDeg);
+        else
+          axis1Pos.write(_osAxis1*Axis1EncTicksPerDeg);
         axis1Pos.saveZero();
       #endif
       #ifdef ENC_HAS_ABSOLUTE_AXIS2
-        axis2Pos.write(_osAxis2*(double)Axis2EncTicksPerDeg);
+        if (Axis2EncRev == ON)
+          axis2Pos.write(-_osAxis2*Axis2EncTicksPerDeg);
+        else
+          axis2Pos.write(_osAxis2*Axis2EncTicksPerDeg);
         axis2Pos.saveZero();
       #endif
     }
   #endif
 
   void Encoders::syncToOnStep() {
-    char s[22];
-    Ser.print(":SX40,"); Ser.print(_enAxis1, 6); Ser.print("#"); Ser.readBytes(s, 1);
-    Ser.print(":SX41,"); Ser.print(_enAxis2, 6); Ser.print("#"); Ser.readBytes(s, 1);
-    Ser.print(":SX42,1#"); Ser.readBytes(s, 1);
+    char cmd[40];
+    sprintF(cmd, ":SX40,%0.6f#", _enAxis1); commandBool(cmd);
+    sprintF(cmd, ":SX41,%0.6f#", _enAxis2); commandBool(cmd);
+    commandBool(":SX42,1#");
   }
 
   // check encoders and auto sync OnStep if diff is too great, checks every 1.5 seconds
@@ -214,16 +192,15 @@ void Encoders::init() {
     char *conv_end;
     if ((long)(temp - nextEncCheckMs) > 0) {
       nextEncCheckMs = temp + (unsigned long)(POLLING_RATE*1000.0);
-      char s[22];
-      
-      if (command(":GX42#", s) && strlen(s) > 1) {
-        double f = strtod(s, &conv_end);
-        if (&s[0] != conv_end && f >= -999.9 && f <= 999.9) _osAxis1 = f;
+
+      char result[40];
+      if (command(":GX42#", result) && strlen(result) > 1) {
+        double f = strtod(result, &conv_end);
+        if (&result[0] != conv_end && f >= -999.9 && f <= 999.9) _osAxis1 = f;
       }
-      
-      if (command(":GX43#", s) && strlen(s) > 1) {
-        double f = strtod(s, &conv_end);
-        if (&s[0] != conv_end && f >= -999.9 && f <= 999.9) _osAxis2 = f;
+      if (command(":GX43#", result) && strlen(result) > 1) {
+        double f = strtod(result, &conv_end);
+        if (&result[0] != conv_end && f >= -999.9 && f <= 999.9) _osAxis2 = f;
       }
       
       long pos = axis1Pos.read();
@@ -241,7 +218,7 @@ void Encoders::init() {
         if (mountStatus.atHome() || mountStatus.parked() || mountStatus.aligning() || mountStatus.syncToEncodersOnly()) {
           syncFromOnStep();
           // re-enable normal operation once we're updated here
-          if (mountStatus.syncToEncodersOnly()) { Ser.print(":SX43,1#"); Ser.readBytes(s, 1); }
+          if (mountStatus.syncToEncodersOnly()) commandBool(":SX43,1#");
         } else
           if (!mountStatus.slewing() && !mountStatus.guiding()) {
             if ((fabs(_osAxis1 - _enAxis1) > (double)(Axis1EncDiffTo/3600.0)) ||
@@ -268,8 +245,8 @@ void Encoders::init() {
         static int pass = -1;
         pass++;
         if (pass%5 == 0) {
-          Ser.print(":GX49#"); s[Ser.readBytesUntil('#',s,20)] = 0;
-          if (strlen(s) > 1) axis1Rate = atof(s); else axis1Rate = 0;
+          char* result = commandString(":GX49#");
+          if (strlen(result) > 1) axis1Rate = atof(result); else axis1Rate = 0;
         }
 
         // reset averages if rate is too fast or too slow
@@ -304,16 +281,17 @@ void Encoders::init() {
         // accumulate tracking rate departures for pulse-guide, rate delta * 2 seconds
         guideCorrection += (axis1Rate - axis1EncRateSta)*((float)Axis1EncProp/100.0)*POLLING_RATE;
 
+        char cmd[40];
         if (guideCorrection > POLLING_RATE) clearAverages(); else
         if (guideCorrection < -POLLING_RATE) clearAverages(); else
         if (guideCorrection > Axis1EncMinGuide/1000.0) {
           guideCorrectionMillis = round(guideCorrection*1000.0);
-          Ser.print(":Mgw"); Ser.print(guideCorrectionMillis); Ser.print("#");
+          sprintf(cmd, ":Mgw%ld#", guideCorrectionMillis); commandBlind(cmd);
           guideCorrection = 0;
         } else
         if (guideCorrection < -Axis1EncMinGuide/1000.0) {
           guideCorrectionMillis = round(guideCorrection*1000.0);
-          Ser.print(":Mge"); Ser.print(-guideCorrectionMillis); Ser.print("#");
+          sprintf(cmd, ":Mge%ld#", -guideCorrectionMillis); commandBlind(cmd);
           guideCorrection = 0;
         } else 
           guideCorrectionMillis = 0;
