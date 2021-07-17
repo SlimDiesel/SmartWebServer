@@ -129,10 +129,10 @@ void handleConfiguration() {
   stripNum(temp2);
   sprintf_P(temp, html_configOffsetHrs, temp2);
   data.concat(temp);
-  strcpy(temp2,temp1);
-  if (temp2[3] == 0) sprintf_P(temp, html_configOffsetMin, "selected", "", ""); else
+  strcpy(temp2, temp1);
   if (temp2[4] == '3') sprintf_P(temp, html_configOffsetMin, "", "selected", ""); else
-  if (temp2[4] == '4') sprintf_P(temp, html_configOffsetMin, "", "", "selected");
+    if (temp2[4] == '4') sprintf_P(temp, html_configOffsetMin, "", "", "selected"); else
+      sprintf_P(temp, html_configOffsetMin, "selected", "", "");
   data.concat(temp);
   data.concat(F("<button type='submit'>" L_UPLOAD "</button>\r\n"));
   data.concat(FPSTR(html_configFormEnd));
@@ -442,7 +442,7 @@ void handleConfiguration() {
       sendHtml(data);
       data.concat("<hr>" L_RESET_TITLE "<br/><br/>");
       data.concat("<button onpointerdown=\"if (confirm('" L_ARE_YOU_SURE "?')) s('advanced','reset')\" type='button'>" L_RESET "!</button>");
-      #ifdef BOOT0_PIN
+      #if defined(BOOT0_PIN) && DISPLAY_RESET_CONTROLS == FWU
         data.concat(" &nbsp;&nbsp;<button onpointerdown=\"if (confirm('" L_ARE_YOU_SURE "?')) s('advanced','fwu')\" type='button'>" L_RESET_FWU "!</button>");
       #endif
       data.concat("<br/>\r\n");

@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "../Constants.h"
 #include "../../Config.h"
-#include "../../ConfigX.h"
+#include "../../Extended.config.h"
 #include "../debug/Debug.h"
 
 #include "../locales/Locale.h"
@@ -29,8 +29,8 @@ bool MountStatus::update(bool all) {
 
   if (!command(":GU#", s) || s[0] == 0) { _valid = false; return false; }
 
-  _tracking = false; _slewing = false;
-  if (!strstr(s, "N")) _slewing = true; else _tracking = !strstr(s,"n");
+  _tracking = false; _inGoto = false;
+  if (!strstr(s, "N")) _inGoto = true; else _tracking = !strstr(s,"n");
 
   _parked      = strstr(s, "P");
   if (strstr(s, "p")) _parked = false;
@@ -48,9 +48,11 @@ bool MountStatus::update(bool all) {
   _toEncOnly   = strstr(s, "e");
   _atHome      = strstr(s, "H");
   _ppsSync     = strstr(s, "S");
-  _guiding     = strstr(s, "G");
+  _pulseGuiding= strstr(s, "G");
+  _guiding     = strstr(s, "g");
+  if (_pulseGuiding) _guiding = true;
   _axisFault   = strstr(s, "f");
-      
+
   if (strstr(s, "r")) { if (strstr(s, "s")) _rateCompensation = RC_REFR_RA; else _rateCompensation = RC_REFR_BOTH; } else
   if (strstr(s, "t")) { if (strstr(s, "s")) _rateCompensation = RC_FULL_RA; else _rateCompensation = RC_FULL_BOTH; } else _rateCompensation = RC_NONE;
 
@@ -129,7 +131,7 @@ bool MountStatus::aligning() {
   if (command(":A?#", s) && strlen(s) == 3 && s[1] <= s[2] && s[1] != '0') return true; else return false;
 }
 bool MountStatus::tracking() { return _tracking; }
-bool MountStatus::slewing() { return _slewing; }
+bool MountStatus::inGoto() { return _inGoto; }
 bool MountStatus::parked() { return _parked; }
 bool MountStatus::parking() { return _parking; }
 bool MountStatus::parkFail() { return _parkFail; }
@@ -143,6 +145,7 @@ bool MountStatus::pecRecording() { return _pecRecording; }
 bool MountStatus::syncToEncodersOnly() { return _toEncOnly; }
 bool MountStatus::atHome() { return _atHome; }
 bool MountStatus::ppsSync() { return _ppsSync; }
+bool MountStatus::pulseGuiding() { return _pulseGuiding; }
 bool MountStatus::guiding() { return _guiding; }
 bool MountStatus::guideRate() { return _guideRate; }
 bool MountStatus::guideRatePulse() { return _guideRatePulse; }

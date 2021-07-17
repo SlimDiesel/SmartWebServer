@@ -3,11 +3,12 @@
 
 #pragma once
 
+#include <Arduino.h>
+
 #if !defined(ARDUINO_ARCH_SAMD)
 
-  #include "Arduino.h"
-  #include "EEPROM.h"
   #include "NV.h"
+  #include "EEPROM.h"
 
   #if defined(E2END)
 

@@ -49,7 +49,7 @@ class MountStatus {
     bool valid();
     bool aligning();
     bool tracking();
-    bool slewing();
+    bool inGoto();
     bool parked();
     bool parking();
     bool parkFail();
@@ -63,6 +63,7 @@ class MountStatus {
     bool syncToEncodersOnly();
     bool atHome();
     bool ppsSync();
+    bool pulseGuiding();
     bool guiding();
     bool guideRate();
     bool guideRatePulse();
@@ -119,7 +120,7 @@ class MountStatus {
     char _ver_patch = 0;
     bool _valid = false;
     bool _tracking = false;
-    bool _slewing = false;
+    bool _inGoto = false;
     bool _parked = false;
     bool _parking = false;
     bool _parkFail = false;
@@ -133,6 +134,7 @@ class MountStatus {
     bool _toEncOnly = false;
     bool _atHome = false;
     bool _ppsSync = false;
+    bool _pulseGuiding = false;
     bool _guiding = false;
     bool _axisFault = false;
     bool _waitingHome = false;
