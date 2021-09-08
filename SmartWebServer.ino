@@ -30,9 +30,9 @@
  */
 
 #define Product "Smart Web Server"
-#define FirmwareVersionMajor  "0"
-#define FirmwareVersionMinor  "9"
-#define FirmwareVersionPatch  "q"
+#define FirmwareVersionMajor  "2"
+#define FirmwareVersionMinor  "0"
+#define FirmwareVersionPatch  "c"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -202,10 +202,14 @@ Again:
     #endif
   #endif
 
-  #if PERSISTENT_COMMAND_CHANNEL == ON && OPERATIONAL_MODE == WIFI
+  #if PERSISTENT_COMMAND_CHANNEL == ON
     VLF("SWS: Starting port 9998 persistant cmd svr");
-    persistentCmdSvr.begin();
-    persistentCmdSvr.setNoDelay(true);
+    #if OPERATIONAL_MODE == WIFI
+      persistentCmdSvr.begin();
+      persistentCmdSvr.setNoDelay(true);
+    #else
+      cmdSvrPersistant.init(9998, 120000);
+    #endif
   #endif
 
   #if OPERATIONAL_MODE == WIFI
@@ -249,6 +253,7 @@ void loop(void) {
     wifiPersistantCommandChannel();
   #else
     ethernetCommandChannel();
+    ethernetPersistantCommandChannel();
   #endif
 
   tasks.yield();
