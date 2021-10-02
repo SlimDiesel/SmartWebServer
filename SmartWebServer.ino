@@ -32,14 +32,13 @@
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
 #define FirmwareVersionMinor  "0"
-#define FirmwareVersionPatch  "c"
+#define FirmwareVersionPatch  "d"
 
 // Use Config.h to configure the SWS to your requirements
 
 #include "src/Common.h"
 NVS nv;
 #include "src/tasks/OnTask.h"
-Tasks tasks;
 #include "src/commands/Commands.h"
 #include "src/ethernetServers/EthernetServers.h"
 #include "src/wifiServers/WifiServers.h"
