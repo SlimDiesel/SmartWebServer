@@ -1,9 +1,7 @@
 // wifi IP command server
 #include "CmdServer.h"
 
-#if defined(OPERATIONAL_MODE) && OPERATIONAL_MODE == WIFI && \
-  ((defined(STANDARD_COMMAND_CHANNEL) && STANDARD_COMMAND_CHANNEL == ON) || \
-   (defined(PERSISTENT_COMMAND_CHANNEL) && PERSISTENT_COMMAND_CHANNEL == ON)) && !defined(SERIAL_IP_MODE)
+#if OPERATIONAL_MODE == WIFI && COMMAND_SERVER != OFF
 
   #include "../../tasks/OnTask.h"
   #include "../../../libApp/cmd/Cmd.h"

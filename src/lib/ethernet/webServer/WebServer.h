@@ -4,10 +4,10 @@
 
 #include "../../../Common.h"
 
-#if defined(OPERATIONAL_MODE) && (OPERATIONAL_MODE == ETHERNET_W5100 || OPERATIONAL_MODE == ETHERNET_W5500) && \
-   (defined(WEB_SERVER) && WEB_SERVER == ON)
+#include "../EthernetManager.h"
 
-  #include "../EthernetManager.h"
+#if (OPERATIONAL_MODE == ETHERNET_W5100 || OPERATIONAL_MODE == ETHERNET_W5500) && \
+    WEB_SERVER == ON
 
   // Turn ON to allow webserver debug messages
   #ifndef DEBUG_WEBSERVER
@@ -45,7 +45,7 @@
   
   class WebServer {
     public:
-      void init();
+      void begin();
 
       void handleClient();
       void setResponseHeader(const char *str);
@@ -79,7 +79,7 @@
       webFunction notFoundHandler = NULL;
       webFunction handlers[HANDLER_COUNT_MAX];
       String handlers_fn[HANDLER_COUNT_MAX];
-      int handler_count;
+      int handler_count = 0;
       
       String parameters[PARAMETER_COUNT_MAX];
       String values[PARAMETER_COUNT_MAX];

@@ -3,11 +3,9 @@
 #pragma once
 
 #include "../../../Common.h"
+#include "../WifiManager.h"
 
-#if defined(OPERATIONAL_MODE) && OPERATIONAL_MODE == WIFI && \
-   (defined(WEB_SERVER) && WEB_SERVER == ON)
-
-  #include "../WifiManager.h"
+#if OPERATIONAL_MODE == WIFI && WEB_SERVER == ON
 
   #if defined(ESP32)
     #include <WebServer.h>

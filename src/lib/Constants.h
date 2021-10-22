@@ -23,6 +23,8 @@
 #define ETHERNET_W5100              -16
 #define ETHERNET_W5500              -17
 #define SHARED                      -18
+#define STANDARD                    -19
+#define PERSISTENT                  -20
 #define INVALID                     -127
 
 // NV/EEPROM
@@ -58,5 +60,3 @@
 #define TenthArcSec                 0.000000484813681L
 #define OneArcSec                   0.000004848136811L
 #define SmallestFloat               0.0000005F
-
-// macros ------------------------------------------------------------------------------

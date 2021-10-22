@@ -2,12 +2,9 @@
 #pragma once
 
 #include "../../../Common.h"
+#include "../WifiManager.h"
 
-#if defined(OPERATIONAL_MODE) && OPERATIONAL_MODE == WIFI && \
-  ((defined(STANDARD_COMMAND_CHANNEL) && STANDARD_COMMAND_CHANNEL == ON) || \
-   (defined(PERSISTENT_COMMAND_CHANNEL) && PERSISTENT_COMMAND_CHANNEL == ON)) && !defined(SERIAL_IP_MODE)
-
-  #include "../WifiManager.h"
+#if OPERATIONAL_MODE == WIFI && COMMAND_SERVER != OFF
 
   class CmdServer {
     public:

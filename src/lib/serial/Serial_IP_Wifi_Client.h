@@ -1,11 +1,14 @@
 // -----------------------------------------------------------------------------------
-// Polling serial IP for ESP32
+// IP communication routines
+
+// original work by jesco-t
+
 #pragma once
 
 #include "../../Common.h"
 #include "../wifi/WifiManager.h"
 
-#if OPERATIONAL_MODE == WIFI && SERIAL_SERVER != OFF
+#if OPERATIONAL_MODE == WIFI && SERIAL_CLIENT == ON
 
   #if defined(ESP32)
     #include <WiFi.h>
@@ -19,54 +22,37 @@
     #error "Configuration (Config.h): No Wifi support is present for this device"
   #endif
 
-  class IPSerial : public Stream {
+
+  class IPSerialClient : public Stream {
     public:
       void begin(long port, unsigned long clientTimeoutMs = 2000, bool persist = false);
-      
       void end();
+      bool isConnected();
 
-      int read(void);
-
-      int available(void);
-
-      int peek(void);
-
-      void flush(void);
-
-      size_t write(uint8_t data);
-
-      size_t write(const uint8_t* data, size_t count);
+      virtual size_t write(uint8_t);
+      virtual size_t write(const uint8_t *, size_t);
+      virtual int available(void);
+      virtual int read(void);
+      virtual int peek(void);
+      virtual void flush(void);
 
       inline size_t write(unsigned long n) { return write((uint8_t)n); }
       inline size_t write(long n) { return write((uint8_t)n); }
       inline size_t write(unsigned int n) { return write((uint8_t)n); }
       inline size_t write(int n) { return write((uint8_t)n); }
-
+      virtual int availableForWrite() { return 1; }
       using Print::write;
 
     private:
-      WiFiServer *cmdSvr;
       WiFiClient cmdSvrClient;
+      IPAddress onStep;
 
-      int port = -1;
-      unsigned long clientTimeoutMs;
-      unsigned long clientEndTimeMs = 0;
       bool active = false;
       bool persist = false;
+      int port = -1;
+      unsigned long clientTimeoutMs;
   };
 
-  #if SERIAL_SERVER == STANDARD || SERIAL_SERVER == BOTH
-    extern IPSerial SerialIP;
-    #define SERIAL_SIP SerialIP
-  #endif
-
-  #if SERIAL_SERVER == PERSISTENT || SERIAL_SERVER == BOTH
-    extern IPSerial SerialPIP1;
-    extern IPSerial SerialPIP2;
-    extern IPSerial SerialPIP3;
-    #define SERIAL_PIP1 SerialPIP1
-    #define SERIAL_PIP2 SerialPIP2
-    #define SERIAL_PIP3 SerialPIP3
-  #endif
-
+  extern IPSerialClient SerialIPClient;
+  #define SERIAL_IP SerialIPClient
 #endif

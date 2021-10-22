@@ -3,11 +3,10 @@
 #pragma once
 
 #include "../../Common.h"
+#include "../ethernet/EthernetManager.h"
 
-#if defined(OPERATIONAL_MODE) && (OPERATIONAL_MODE == ETHERNET_W5100 || OPERATIONAL_MODE == ETHERNET_W5500) && \
-    defined(SERIAL_IP_MODE) && (SERIAL_IP_MODE == STATION || SERIAL_IP_MODE == ON)
-
-  #include "../ethernet/EthernetManager.h"
+#if (OPERATIONAL_MODE == ETHERNET_W5100 || OPERATIONAL_MODE == ETHERNET_W5500) && \
+    SERIAL_SERVER != OFF
 
   #ifdef ESP8266
     #ifndef ETHERNET_W5500
@@ -20,7 +19,7 @@
 
   class IPSerial : public Stream {
     public:
-      void begin(long port, unsigned long clientTimeoutMs, bool persist = false);
+      void begin(long port, unsigned long clientTimeoutMs = 2000, bool persist = false);
 
       void restart();
 
@@ -56,14 +55,14 @@
       bool persist = false;
   };
 
-  #if defined(STANDARD_COMMAND_CHANNEL) && STANDARD_COMMAND_CHANNEL == ON
-    extern IPSerial ipSerial;
-    #define SERIAL_IP ipSerial
+  #if SERIAL_SERVER == STANDARD || SERIAL_SERVER == BOTH
+    extern IPSerial SerialIP;
+    #define SERIAL_SIP SerialIP
   #endif
 
-  #if defined(PERSISTENT_COMMAND_CHANNEL) && PERSISTENT_COMMAND_CHANNEL == ON
-    extern IPSerial pipSerial;
-    #define SERIAL_PIP pipSerial
+  #if SERIAL_SERVER == PERSISTENT || SERIAL_SERVER == BOTH
+    extern IPSerial SerialPIP1;
+    #define SERIAL_PIP1 SerialPIP1
   #endif
 
 #endif
