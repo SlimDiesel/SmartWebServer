@@ -50,12 +50,17 @@
 #define AP_SN_MASK        {255,255,255,0} // ..55,255,0}, Wifi Access Point SUBNET Mask.                                      Adjust
 
 #define STA_ENABLED                 false //       false, Wifi Station Enabled.                                               Adjust
-#define STA_DHCP_ENABLED             true //        true, Wifi Station DHCP Enabled.                                          Adjust
 #define STA_SSID                   "Home" //      "Home", Wifi Station SSID to connnect to.                                   Adjust
 #define STA_PASSWORD           "password" //  "password", Wifi Station mode password.                                         Adjust
+#define STA_DHCP_ENABLED            false //       false, Wifi Station DHCP Enabled.                                          Adjust
 #define STA_IP_ADDR        {192,168,1,55} // ..168,1,55}, Wifi Station/Ethernet IP Address.                                   Adjust
 #define STA_GW_ADDR         {192,168,1,1} // ..,168,1,1}, Wifi Station/Ethernet GATEWAY Address.                              Adjust
 #define STA_SN_MASK       {255,255,255,0} // ..55,255,0}, Wifi Station/Ethernet SUBNET Mask.                                  Adjust
+
+// ONSTEP RESET CONTROL ------------------------------------------------------------------------------------------------------------
+#define RESET_PIN                     OFF //         OFF, Specify a pin# used to reset OnStep.                                Infreq
+#define RESET_PIN_STATE               LOW //         OFF, Specify state of RESET_PIN pin otherwise OPEN when inactive.        Infreq
+                                          //             
 
 // NON-VOLATILE STORAGE ------------------------------------------------------------------------------------------------------------
 #define NV_WIPE                       OFF //         OFF, Causes the defaults to be written back into NV (FLASH,EEPROM,etc.)  Infreq

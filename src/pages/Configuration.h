@@ -80,17 +80,27 @@ const char html_configMountType[] PROGMEM =
   const char html_configAxisSpu[] PROGMEM =
   " <input style='width: 7em;' value='%s' type='number' name='a%dspu' min='0.01' max='10' step='any'>&nbsp; " L_ADV_SET_SPM "<br />\r\n";
   const char html_configAxisMicroSteps[] PROGMEM =
-  " <input style='width: 7em;' value='%d' type='number' name='a%dustp' min='1' max='256' step='1'>&nbsp; " L_ADV_SET_us "<br />\r\n";
-  const char html_configAxisCurrent[] PROGMEM =
-  " <input style='width: 7em;' value='%d' type='number' name='a%dI' min='0' max='%d' step='1'>&nbsp; " L_ADV_SET_ma "<br />\r\n";
+  " <input style='width: 7em;' value='%d' type='number' name='a%dustp' min='1' max='256' step='1'>&nbsp; " L_ADV_SET_TRAK_us "<br />\r\n";
+  const char html_configAxisMicroStepsGoto[] PROGMEM =
+  " <input style='width: 7em;' value='%d' type='number' name='a%dustpGoto' min='-1' max='256' step='1'>&nbsp; " L_ADV_SET_GOTO_us "<br />\r\n";
+  const char html_configAxisCurrentHold[] PROGMEM =
+  " <input style='width: 7em;' value='%d' type='number' name='a%dIh' min='-1' max='%d' step='1'>&nbsp; " L_ADV_SET_HOLD_ma "<br />\r\n";
+  const char html_configAxisCurrentTrak[] PROGMEM =
+  " <input style='width: 7em;' value='%d' type='number' name='a%dI' min='-1' max='%d' step='1'>&nbsp; " L_ADV_SET_TRAK_ma "<br />\r\n";
   const char html_configAxisCurrentSlew[] PROGMEM =
-  " <input style='width: 7em;' value='%d' type='number' name='a%dIs' min='0' max='%d' step='1'>&nbsp; " L_ADV_SET_SLEW_ma "<br />\r\n";
+  " <input style='width: 7em;' value='%d' type='number' name='a%dIs' min='-1' max='%d' step='1'>&nbsp; " L_ADV_SET_SLEW_ma "<br />\r\n";
   const char html_configAxisP[] PROGMEM =
   " <input style='width: 7em;' value='%s' type='number' name='a%dp' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_P "<br />\r\n";
   const char html_configAxisI[] PROGMEM =
   " <input style='width: 7em;' value='%s' type='number' name='a%di' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_I "<br />\r\n";
   const char html_configAxisD[] PROGMEM =
   " <input style='width: 7em;' value='%s' type='number' name='a%dd' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_D "<br />\r\n";
+  const char html_configAxisGotoP[] PROGMEM =
+  " <input style='width: 7em;' value='%s' type='number' name='a%dpGoto' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_P_GOTO "<br />\r\n";
+  const char html_configAxisGotoI[] PROGMEM =
+  " <input style='width: 7em;' value='%s' type='number' name='a%diGoto' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_I_GOTO "<br />\r\n";
+  const char html_configAxisGotoD[] PROGMEM =
+  " <input style='width: 7em;' value='%s' type='number' name='a%ddGoto' min='%d' max='%ld' step='any'>&nbsp; " L_ADV_SET_D_GOTO "<br />\r\n";
   const char html_configAxisReverse[] PROGMEM =
   " <input style='width: 7em;' value='%d' type='number' name='a%drev' min='0' max='1' step='1'>&nbsp; " L_ADV_SET_REV "<br />\r\n";
   const char html_configAxisMin[] PROGMEM =

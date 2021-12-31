@@ -421,7 +421,7 @@ void handleConfiguration() {
               data.concat(temp);
               sendHtml(data);
 
-              sprintf_P(temp, html_configAxisReverse,a.reverse == ON ? 1 : 0, focuser + 4);
+              sprintf_P(temp, html_configAxisReverse, a.reverse == ON ? 1 : 0, focuser + 4);
               data.concat(temp);
               sendHtml(data);
 
@@ -649,16 +649,38 @@ bool processConfigurationGet() {
     }
   }
 
-  String ssa=www.arg("advanced");
+  String ssa = www.arg("advanced");
   #if DISPLAY_RESET_CONTROLS != OFF
-    if (ssa.equals("reset")) { onStep.commandBlind(":ERESET#"); return false; }
+    if (ssa.equals("reset")) {
+
+      #if RESET_PIN == OFF
+        onStep.commandBlind(":ERESET#");
+      #else
+        digitalWrite(RESET_PIN, RESET_PIN_STATE);
+        pinMode(RESET_PIN, OUTPUT);
+        delay(250);
+        pinMode(RESET_PIN, INPUT);
+      #endif
+
+      delay(250);
+      return false;
+    }
     #ifdef BOOT0_PIN
       if (ssa.equals("fwu")) {
-        pinMode(BOOT0_PIN,OUTPUT);
-        digitalWrite(BOOT0_PIN,HIGH);
-        onStep.commandBlind(":ERESET#");
-        delay(500);
-        pinMode(BOOT0_PIN,INPUT);
+        digitalWrite(BOOT0_PIN, HIGH);
+        pinMode(BOOT0_PIN, OUTPUT);
+
+        #if RESET_PIN == OFF
+          onStep.commandBlind(":ERESET#");
+        #else
+          digitalWrite(RESET_PIN, RESET_PIN_STATE);
+          pinMode(RESET_PIN, OUTPUT);
+          delay(250);
+          pinMode(RESET_PIN, INPUT);
+        #endif
+
+        delay(250);
+        pinMode(BOOT0_PIN, INPUT);
         return false;
       }
     #endif
@@ -726,14 +748,20 @@ bool processConfigurationGet() {
       String s3 = www.arg("a" + axisStr + "min");
       String s4 = www.arg("a" + axisStr + "max");
       String s5 = www.arg("a" + axisStr + "ustp");
-      String s6, s7;
+      String s6, s7, s8, s9, s10;
       if (s5.equals(EmptyStr)) {
         s5 = www.arg("a" + axisStr + "p");
         s6 = www.arg("a" + axisStr + "i");
         s7 = www.arg("a" + axisStr + "d");
+        s8 = www.arg("a" + axisStr + "pGoto");
+        s9 = www.arg("a" + axisStr + "iGoto");
+        s10 = www.arg("a" + axisStr + "dGoto");
       } else {
-        s6 = www.arg("a" + axisStr + "I");
-        s7 = www.arg("a" + axisStr + "Is");
+        s6 = www.arg("a" + axisStr + "ustpGoto");
+        s7 = www.arg("a" + axisStr + "Ih");;
+        s8 = www.arg("a" + axisStr + "I");
+        s9 = www.arg("a" + axisStr + "Is");
+        s10 = "";
       }
 
       if (axisStr.toInt() > 0 && axisStr.toInt() < 10) {
@@ -744,8 +772,11 @@ bool processConfigurationGet() {
         if (s5.equals(EmptyStr)) s5 = "-1";
         if (s6.equals(EmptyStr)) s6 = "-1";
         if (s7.equals(EmptyStr)) s7 = "-1";
+        if (s8.equals(EmptyStr)) s8 = "-1";
+        if (s9.equals(EmptyStr)) s9 = "-1";
+        if (s10.equals(EmptyStr)) s10 = "-1";
 
-        v = s1 + "," + s2 + "," + s3 + "," + s4 + "," + s5 + "," + s6 + "," + s7;
+        v = s1 + "," + s2 + "," + s3 + "," + s4 + "," + s5 + "," + s6 + "," + s7 + "," + s8 + "," + s9 + "," + s10;
         sprintf(temp, ":SXA%d,%s#", (int)axisStr.toInt(), v.c_str());
         onStep.commandBool(temp);
 
@@ -764,7 +795,12 @@ bool processConfigurationGet() {
 void sendAxisParams(AxisSettings* a, int axis) {
   char temp[300], temp1[40];
   String data = "";
-  if (a->isServo) {
+
+  if (a->driverType == DT_SERVO) {
+    data.concat(L_ADV_SET_IMMEDIATE);
+    data.concat("<br/><br/>");
+    sendHtml(data);
+
     dtostrf(a->p, 1, 3, temp1);
     stripNum(temp1);
     sprintf_P(temp, html_configAxisP, temp1, axis, 0, 99999999L);
@@ -782,7 +818,72 @@ void sendAxisParams(AxisSettings* a, int axis) {
     sprintf_P(temp, html_configAxisD, temp1, axis, 0, 99999999L);
     data.concat(temp);
     sendHtml(data);
-  } else {
+
+    dtostrf(a->pGoto, 1, 3, temp1);
+    stripNum(temp1);
+    sprintf_P(temp, html_configAxisGotoP, temp1, axis, 0, 99999999L);
+    data.concat(temp);
+    sendHtml(data);
+
+    dtostrf(a->iGoto, 1, 3, temp1);
+    stripNum(temp1);
+    sprintf_P(temp, html_configAxisGotoI, temp1, axis, 0, 99999999L);
+    data.concat(temp);
+    sendHtml(data);
+
+    dtostrf(a->dGoto, 1, 3, temp1);
+    stripNum(temp1);
+    sprintf_P(temp, html_configAxisGotoD, temp1, axis, 0, 99999999L);
+    data.concat(temp);
+    sendHtml(data);
+  } else
+
+  if (a->driverType == DT_STEP_DIR_STANDARD) {
+    data.concat(L_ADV_SET_SPECIAL);
+    data.concat("<br/><br/>");
+    sendHtml(data);
+
+    #if DRIVE_MAIN_AXES_MICROSTEPS == ON
+      sprintf_P(temp, html_configAxisMicroSteps, (int)a->microsteps, axis);
+      data.concat(temp);
+      sendHtml(data);
+
+      sprintf_P(temp, html_configAxisMicroStepsGoto, (int)a->microstepsGoto, axis);
+      data.concat(temp);
+      sendHtml(data);
+    #endif
+  } else
+
+  if (a->driverType == DT_STEP_DIR_TMC_SPI) {
+    data.concat(L_ADV_SET_SPECIAL);
+    data.concat("<br/><br/>");
+    sendHtml(data);
+
+    #if DRIVE_MAIN_AXES_MICROSTEPS == ON
+      sprintf_P(temp, html_configAxisMicroSteps, (int)a->microsteps, axis);
+      data.concat(temp);
+      sendHtml(data);
+
+      sprintf_P(temp, html_configAxisMicroStepsGoto, (int)a->microstepsGoto, axis);
+      data.concat(temp);
+      sendHtml(data);
+    #endif
+    #if DRIVE_MAIN_AXES_CURRENT == ON
+      sprintf_P(temp, html_configAxisCurrentHold, (int)a->currentHold, axis, 3000);
+      data.concat(temp);
+      sendHtml(data);
+
+      sprintf_P(temp, html_configAxisCurrentTrak, (int)a->currentRun, axis, 3000);
+      data.concat(temp);
+      sendHtml(data);
+
+      sprintf_P(temp, html_configAxisCurrentSlew, (int)a->currentGoto, axis, 3000);
+      data.concat(temp);
+      sendHtml(data);
+    #endif
+  } else
+
+  if (a->driverType == DT_STEP_DIR_LEGACY) {
     #if DRIVE_MAIN_AXES_MICROSTEPS == ON
       if (a->microsteps != OFF) {
         sprintf_P(temp, html_configAxisMicroSteps, (int)a->microsteps, axis);
@@ -791,13 +892,13 @@ void sendAxisParams(AxisSettings* a, int axis) {
       }
     #endif
     #if DRIVE_MAIN_AXES_CURRENT == ON
-      if (a->IRUN != OFF) {
-        sprintf_P(temp, html_configAxisCurrent, (int)a->IRUN, axis, 3000);
+      if (a->currentRun != OFF) {
+        sprintf_P(temp, html_configAxisCurrentTrak, (int)a->currentRun, axis, 3000);
         data.concat(temp);
         sendHtml(data);
       }
-      if (a->IGOTO != OFF) {
-        sprintf_P(temp, html_configAxisCurrentSlew, (int)a->IGOTO, axis, 3000);
+      if (a->currentGoto != OFF) {
+        sprintf_P(temp, html_configAxisCurrentSlew, (int)a->currentGoto, axis, 3000);
         data.concat(temp);
         sendHtml(data);
       }

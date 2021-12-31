@@ -4,7 +4,7 @@
 
 #include "../../../../Common.h"
 
-#ifdef SD_DRIVER_PRESENT
+#ifdef STEP_DIR_MOTOR_PRESENT
 
 #include "StepDirDrivers.h"
 #include "../Motor.h"
@@ -34,8 +34,14 @@ class StepDirMotor : public Motor {
     // set driver default reverse state
     void setReverse(int8_t state);
 
+    // get driver type code
+    inline char getParamTypeCode() { return driver->getParamTypeCode(); }
+
     // set default driver microsteps and current
-    void setParam(float microsteps, float currentRun, float currentGoto);
+    void setParam(float param1, float param2, float param3, float param4, float param5, float param6);
+
+    // validate driver parameters
+    bool validateParam(float param1, float param2, float param3, float param4, float param5, float param6);
 
     // sets motor power on/off (if possible)
     void power(bool value);

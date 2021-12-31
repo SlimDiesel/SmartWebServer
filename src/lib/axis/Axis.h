@@ -4,7 +4,7 @@
 
 #include "../../Common.h"
 
-#if defined(SERVO_DRIVER_PRESENT) || defined(SD_DRIVER_PRESENT)
+#ifdef MOTOR_PRESENT
 
 // default location of settings in NV
 #ifndef NV_AXIS_SETTINGS_REVERT
@@ -33,19 +33,22 @@ typedef struct AxisLimits {
 
 // helpers for step/dir and servo parameters
 #define subdivisions param1
+#define subdivisionsGoto param2
+#define currentHold param3
+#define currentRun param4
+#define currentGoto param5
 #define integral param1
-#define currentRun param2
 #define porportional param2
-#define currentGoto param3
 #define derivative param3
+#define integralGoto param4
+#define porportionalGoto param5
+#define derivativeGoto param6
 
-#define AxisSettingsSize 33
+#define AxisSettingsSize 45
 typedef struct AxisSettings {
   double     stepsPerMeasure;
   int8_t     reverse;
-  float      param1;       // stepper driver subdivision  or servo driver proportional
-  float      param2;       // stepper driver current run  or servo driver integral
-  float      param3;       // stepper driver current slew or servo driver derivative
+  float      param1, param2, param3, param4, param5, param6;
   AxisLimits limits;
   float      backlashFreq;
 } AxisSettings;
@@ -294,7 +297,7 @@ class Axis {
 
     bool decodeAxisSettings(char *s, AxisSettings &a);
 
-    bool validateAxisSettings(int axisNum, AxisSettings a, bool isServo = false);
+    bool validateAxisSettings(int axisNum, AxisSettings a);
     
     AxisErrors errors;
     bool lastErrorResult = false;

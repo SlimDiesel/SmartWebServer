@@ -3,7 +3,7 @@
 
 #include "StepDirDrivers.h"
 
-#ifdef SD_DRIVER_PRESENT
+#ifdef STEP_DIR_MOTOR_PRESENT
 
 const static int8_t steps[DRIVER_MODEL_COUNT][9] =
 //  1   2   4   8  16  32  64 128 256x
@@ -33,15 +33,25 @@ StepDirDriver::StepDirDriver(uint8_t axisNumber, const DriverModePins *Pins, con
   settings = *Settings;
 }
 
-void StepDirDriver::init(int16_t microsteps, int16_t currentRun, int16_t currentGoto) {
+// decodes driver model/microstep mode into microstep codes (bit patterns or SPI) and sets up the pin modes
+void StepDirDriver::setParam(float param1, float param2, float param3, float param4, float param5, float param6) {
+  settings.microsteps = round(param1);
+  settings.microstepsGoto = round(param2);
+  settings.currentHold = round(param3);
+  settings.currentRun  = round(param4);
+  settings.currentGoto = round(param5);
+  UNUSED(param6);
+
+  if (!isTmcSPI()) {
+    if (settings.currentHold != OFF || settings.currentRun != OFF || settings.currentGoto != OFF) {
+      VF("WRN: StepDvr"); V(axisNumber); VF(", incorrect model for current control, disabling settings");
+      settings.currentHold = OFF;
+      settings.currentRun = OFF;
+      settings.currentGoto = OFF;
+    }
+  }
+
   if (settings.currentRun != OFF) {
-    // disable any custom currentHold if a new currentRun is specified
-    if (settings.currentRun != currentRun) settings.currentHold = OFF;
-
-    // adopt any runtime settings
-    settings.currentRun = currentRun;
-    settings.currentGoto = currentGoto;
-
     // automatically set goto and hold current if they are disabled
     if (settings.currentGoto == OFF) settings.currentGoto = settings.currentRun;
     if (settings.currentHold == OFF) settings.currentHold = lround(settings.currentRun/2.0F);
@@ -52,9 +62,6 @@ void StepDirDriver::init(int16_t microsteps, int16_t currentRun, int16_t current
     settings.currentGoto = settings.currentRun;
     settings.currentHold = lround(settings.currentRun/2.0F);
   }
-
-  // update the microsteps from the initialization setting
-  settings.microsteps = microsteps;
 
   #if DEBUG == VERBOSE
     VF("MSG: StepDvr"); V(axisNumber); VF(", init model "); V(DRIVER_NAME[settings.model]);
@@ -73,7 +80,7 @@ void StepDirDriver::init(int16_t microsteps, int16_t currentRun, int16_t current
       if (settings.decayGoto == OFF) settings.decayGoto = SPREADCYCLE;
       tmcDriver.init(settings.model, Pins->m0, Pins->m1, Pins->m2, Pins->m3);
       VF("MSG: StepDvr"); V(axisNumber); VF(", TMC ");
-      if (currentRun == OFF) {
+      if (settings.currentRun == OFF) {
         VLF("current control OFF (set by Vref)");
       } else {
         VF("Ihold="); V(settings.currentHold); VF("mA, ");
@@ -118,6 +125,72 @@ void StepDirDriver::init(int16_t microsteps, int16_t currentRun, int16_t current
   #else
     if (settings.status == HIGH) pinModeEx(Pins->fault, INPUT);
   #endif
+}
+
+// validate driver parameters
+bool StepDirDriver::validateParam(float param1, float param2, float param3, float param4, float param5, float param6) {
+  int index = axisNumber - 1;
+  if (index > 3) index = 3;
+  int IrunLimitH[4] = {3000, 3000, 1000, 1000};
+  
+  long subdivisions = round(param1);
+  long subdivisionsGoto = round(param2);
+  long currentHold = round(param3);
+  long currentRun = round(param4);
+  long currentGoto = round(param5);
+  UNUSED(param6);
+
+  VL(param1);
+  VL(param2);
+  VL(param3);
+  VL(param4);
+  VL(param5);
+  VL(param6);
+  
+
+  if (subdivisions == OFF) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DLF(" subdivisions must be set");
+    return false;
+  }
+
+  if (subdivisions <= subdivisionsGoto) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DLF(" subdivisions must be > subdivisionsGoto");
+    return false;
+  }
+
+  if (subdivisions != OFF && (subdivisionsToCode(subdivisions) == OFF)) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad subdivisions="); DL(subdivisions);
+    return false;
+  }
+
+  if (subdivisionsGoto != OFF && (subdivisionsToCode(subdivisionsGoto) == OFF)) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad subdivisionsGoto="); DL(subdivisionsGoto);
+    return false;
+  }
+
+  if (!isTmcSPI()) {
+    if (currentHold != OFF || currentRun != OFF || currentGoto != OFF) {
+      DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" current settings are not valid for this driver type!");
+      return false;
+    }
+  }
+
+  if (currentHold != OFF && (currentHold < 0 || currentHold > IrunLimitH[index])) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current hold="); DL(currentHold);
+    return false;
+  }
+
+  if (currentRun != OFF && (currentRun < 0 || currentRun > IrunLimitH[index])) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current run="); DL(currentRun);
+    return false;
+  }
+
+  if (currentGoto != OFF && (currentGoto < 0 || currentGoto > IrunLimitH[index])) {
+    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current goto="); DL(currentGoto);
+    return false;
+  }
+
+  return true;
 }
 
 bool StepDirDriver::modeSwitchAllowed() {
@@ -269,7 +342,7 @@ bool StepDirDriver::isDecayOnM2() {
 // different models of stepper drivers have different bit settings for microsteps
 // translate the human readable microsteps in the configuration to mode bit settings
 // returns bit code (0 to 7) or OFF if microsteps is not supported or unknown
-int StepDirDriver::subdivisionsToCode(uint8_t microsteps) {
+int StepDirDriver::subdivisionsToCode(long microsteps) {
   int allowed[9] = {1,2,4,8,16,32,64,128,256};
   if (settings.model >= DRIVER_MODEL_COUNT) return OFF;
   for (int i = 0; i < 9; i++) {

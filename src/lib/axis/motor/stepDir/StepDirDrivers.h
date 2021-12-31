@@ -5,7 +5,7 @@
 #include <Arduino.h>
 #include "../../../../Common.h"
 
-#ifdef SD_DRIVER_PRESENT
+#ifdef STEP_DIR_MOTOR_PRESENT
 
 // the various microsteps for different driver models, with the bit modes for each
 #define DRIVER_MODEL_COUNT 12
@@ -47,26 +47,36 @@ class StepDirDriver {
     // constructor
     StepDirDriver(uint8_t axisNumber, const DriverModePins *Pins, const DriverSettings *Settings);
 
-    // decodes driver model/microstep mode into microstep codes (bit patterns or SPI)
-    // and sets up the pin modes
-    void init(int16_t microsteps, int16_t currentRun, int16_t currentGoto);
+    // get driver type code
+    inline char getParamTypeCode() { if (isTmcSPI()) return 'T'; else return 'S'; }
+
+    // decodes driver model/microstep mode into microstep codes (bit patterns or SPI) and sets up the pin modes
+    void setParam(float param1, float param2, float param3, float param4, float param5, float param6);
+
+    // validate driver parameters
+    bool validateParam(float param1, float param2, float param3, float param4, float param5, float param6);
 
     // true if switching microstep modes is allowed
     bool modeSwitchAllowed();
+
     // set microstep mode for tracking
     void modeMicrostepTracking();
+
     // set decay mode for tracking
     void modeDecayTracking();
 
     // get microstep ratio for slewing
     int getMicrostepRatio();
+
     // set microstep mode for slewing
     int modeMicrostepSlewing();
+
     // set decay mode for slewing
     void modeDecaySlewing();
 
     // update status info. for driver
     void updateStatus();
+
     // get status info.
     DriverStatus getStatus();
 
@@ -88,7 +98,7 @@ class StepDirDriver {
     // translate the human readable microsteps in the configuration to mode bit settings
     // returns bit code (0 to 7) or OFF if microsteps is not supported or unknown
     // this is a required method for the Axis class, even if it only ever returns 1
-    int subdivisionsToCode(uint8_t microsteps);
+    int subdivisionsToCode(long microsteps);
 
     #ifdef TMC_DRIVER_PRESENT
       TmcDriver tmcDriver;
