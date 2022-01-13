@@ -104,12 +104,12 @@
 // driver status
 #define L_DRIVER_STATUS "Teriber"
 #define L_STATE "Status"
-#define L_COMMS_FAILURE "Befehlsfehler"
-#define L_STANDSTILL "Stillstand"
-#define L_OPEN_LOAD "Offene Last"
-#define L_SHORT_GND "Masseschluss"
-#define L_SHUTDOWN_OVER "Abschaltung &uuml;ber"
-#define L_PRE_WARNING "Vorwarnung"
+#define L_COMMS_FAILURE "befehlsfehler"
+#define L_STANDSTILL "stillstand"
+#define L_OPEN_LOAD "offene last"
+#define L_SHORT_GND "masseschluss"
+#define L_SHUTDOWN_OVER "abschaltung &uuml;ber"
+#define L_PRE_WARNING "vorwarnung"
 #define L_DRIVER_FAULT "Fehler"
 
 // misc. errors/workload
@@ -367,7 +367,7 @@
 #define L_ADV_SET_MIN "Mindestposition"
 #define L_ADV_SET_MAX "Maximale Position"
 
-#define L_ADV_SET_SPECIAL "Ein Wert von -1 ist äquivalent zu Config.h OFF, HALF, or SAME:"
+#define L_ADV_SET_SPECIAL "Ein Wert von -1 ist äquivalent zu Config.h OFF:"
 #define L_ADV_SET_IMMEDIATE "Servoeinstellungen werden sofort wirksam (kein Neustart erforderlich)"
 #define L_ADV_SET_TRAK_us "Treiber Mikroschritte"
 #define L_ADV_SET_GOTO_us "Treiber Mikroschritte Gehe zu"

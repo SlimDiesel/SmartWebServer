@@ -31,7 +31,7 @@ bool NonVolatileStorage::init(uint16_t size, bool cacheEnable, uint16_t wait, bo
   return true;
 }
 
-void NonVolatileStorage::readOnly(bool state) {
+void NonVolatileStorage::setReadOnly(bool state) {
   readOnlyMode = state;
 }
 

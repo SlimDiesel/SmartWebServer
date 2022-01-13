@@ -95,12 +95,12 @@
 // driver status
 #define L_DRIVER_STATUS "Driver"
 #define L_STATE "Status"
-#define L_COMMS_FAILURE "Comms failure"
-#define L_STANDSTILL "Standstill"
-#define L_OPEN_LOAD "Open Load"
-#define L_SHORT_GND "Short Gnd"
-#define L_SHUTDOWN_OVER "Shutdown Over"
-#define L_PRE_WARNING "Pre-warning"
+#define L_COMMS_FAILURE "comms failure"
+#define L_STANDSTILL "standstill"
+#define L_OPEN_LOAD "open load"
+#define L_SHORT_GND "short gnd"
+#define L_SHUTDOWN_OVER "shutdown over"
+#define L_PRE_WARNING "pre-warning"
 #define L_DRIVER_FAULT "Fault"
 
 // misc. errors/workload
@@ -357,7 +357,7 @@
 #define L_ADV_SET_MIN "Minimum position"
 #define L_ADV_SET_MAX "Maximum position"
 
-#define L_ADV_SET_SPECIAL "A value of -1 is equivalent to Config.h OFF, HALF, or SAME:"
+#define L_ADV_SET_SPECIAL "A value of -1 is equivalent to Config.h OFF"
 #define L_ADV_SET_IMMEDIATE "Servo settings take effect immediately (no reboot required)"
 #define L_ADV_SET_TRAK_us "Driver Microsteps"
 #define L_ADV_SET_GOTO_us "Driver Microsteps Goto"
@@ -460,7 +460,7 @@
 #define L_GE_ALT_MAX "Above overhead limit"
 #define L_GE_WEATHER_INIT "Weather sensor init failed"
 #define L_GE_SITE_INIT "Time or loc. not updated"
-#define L_GE_NV_INIT "Init NV/EEPROM bad"
+#define L_GE_NV_INIT "Init NV/EEPROM error"
 #define L_GE_OTHER "Unknown Error, code"
 
 // command errors

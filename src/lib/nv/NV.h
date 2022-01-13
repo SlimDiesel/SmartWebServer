@@ -18,8 +18,8 @@ class NonVolatileStorage {
     // result:      true if the device was found, or false if not
     virtual bool init(uint16_t size, bool cacheEnable, uint16_t wait, bool checkEnable, TwoWire* wire = NULL, uint8_t address = 0);
 
-    // disables writing if true, defaults to false
-    void readOnly(bool state);
+    // protects already written data if true, defaults to false
+    void setReadOnly(bool state);
 
     // check to see if read only operation is set
     inline bool isReadOnly() { return readOnlyMode; }
@@ -114,6 +114,8 @@ class NonVolatileStorage {
 
     // NV size in bytes
     uint16_t size = 0;
+
+    bool initError = false;
 
   protected:
     // returns false if ready to read or write immediately

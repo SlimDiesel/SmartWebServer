@@ -113,8 +113,8 @@ class StepDirDriver {
     // checkes if decay control is on the M2 pin
     bool isDecayOnM2();
 
-    int axisNumber;
-    DriverStatus status = {{false, false}, {false, false}, false, false, false, false};
+    int     axisNumber;
+    DriverStatus status = {false, {false, false}, {false, false}, false, false, false, false};
 
     int     microstepRatio        = 1;
     int     microstepCode         = OFF;
