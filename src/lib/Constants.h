@@ -26,7 +26,6 @@
 #define INVALID                     -127
 
 // driver (step/dir interface, usually for stepper motors)
-#ifndef DRIVER_FIRST
 #define DRIVER_FIRST                0
 #define A4988                       0      // allows M0,M1,M2 bit patterens for 1x,2x,4x,8x,16x
 #define DRV8825                     1      // allows M0,M1,M2 bit patterens for 1x,2x,4x,8x,16x,32x
@@ -41,10 +40,8 @@
 #define TMC5160                     10     // uses TMC protocol SPI comms   for 1x,2x...,256x  (SPI sets spreadCycle/stealthChop etc.)
 #define GENERIC                     11     // generic s/d driver allows     for 1x,2x,4x,8x,16x,32x,64x,128x,256x (no mode switching)
 #define DRIVER_LAST                 11
-#endif
 
 // driver (step/dir) decay mode
-#ifndef DRIVER_DECAY_MODE_FIRST
 #define DRIVER_DECAY_MODE_FIRST     1
 #define MIXED                       2
 #define FAST                        3
@@ -52,32 +49,25 @@
 #define SPREADCYCLE                 5
 #define STEALTHCHOP                 6
 #define DRIVER_DECAY_MODE_LAST      6
-#endif
 
 // servo driver (usually for DC motors equipped with encoders)
-#ifndef SERVO_DRIVER_FIRST
 #define SERVO_DRIVER_FIRST          100
 #define SERVO_PE                    100    // SERVO, direction (phase) and enable (pwm) connections
 #define SERVO_II                    101    // SERVO, dual pwm input connections
 #define SERVO_DRIVER_LAST           101
-#endif
 
 // servo encoder (must match Encoder library)
-#ifndef SERVO_ENCODER_FIRST
 #define SERVO_ENCODER_FIRST         1
 #define ENC_AB                      1      // AB quadrature encoder
 #define ENC_CW_CCW                  2      // clockwise/counter-clockwise encoder
 #define ENC_PULSE_DIR               3      // pulse/direction encoder
 #define ENC_PULSE_ONLY              4      // pulse only encoder
 #define SERVO_ENCODER_LAST          4
-#endif
 
 // servo feedback (must match Encoder library)
-#ifndef SERVO_FEEDBACK_FIRST
 #define SERVO_FEEDBACK_FIRST        1
 #define FB_PID                      1      // PID feedback
 #define SERVO_FEEDBACK_LAST         1
-#endif
 
 // driver (step/dir) and servo, misc.
 #define DEFAULT_POWER_DOWN_TIME     30000  // default standstill time (in ms) to power down an axis (see AXISn_DRIVER_POWER_DOWN)
@@ -86,14 +76,20 @@
 
 // NV/EEPROM
 #define NV_KEY_VALUE                111111111UL
-#define NV_DEFAULT                  ON  // use the HAL specified default
+
+#define NV_DEFAULT                  0
+#define NV_2416                     1  // 2KB I2C EEPROM AT DEFAULT ADDRESS 0x50
+#define NV_2432                     2  // 4KB I2C EEPROM AT DEFAULT ADDRESS 0x50
+#define NV_2464                     3  // 8KB I2C EEPROM AT DEFAULT ADDRESS 0x50
+#define NV_24128                    4  // 16KB I2C EEPROM AT DEFAULT ADDRESS 0x50
+#define NV_24256                    5  // 32KB I2C EEPROM AT DEFAULT ADDRESS 0x50
+#define NV_AT24C32                  6  // 4KB I2C EEPROM AT DEFAULT ADDRESS 0x57 (ZS-01 module for instance)
+#define NV_MB85RC256                7  // 32KB I2C FRAM AT DEFAULT ADDRESS 0x50
+
 #define NVE_LOW                     0   // low (< 100K writes)
 #define NVE_MID                     1   // mid (~ 100K writes)
 #define NVE_HIGH                    2   // high (~ 1M writes)
 #define NVE_VHIGH                   3   // very high (> 1M writes)
-#ifndef NV_ENDURANCE
-  #define NV_ENDURANCE NVE_MID
-#endif
 
 // angular
 #define RAD_DEG_RATIO               57.29577951308232L

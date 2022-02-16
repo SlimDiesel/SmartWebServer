@@ -64,7 +64,7 @@ void handleConfiguration() {
   sendHtml(data);
   
   // OnStep wasn't found, show warning and info.
-  if (!mountStatus.valid() || !success) { data+= FPSTR(html_bad_comms_message); sendHtml(data); sendHtmlDone(data); return; }
+  if (!mountStatus.valid()) { data.concat(FPSTR(html_bad_comms_message)); sendHtml(data); sendHtmlDone(); return; }
   
   // scripts
   sprintf_P(temp, html_ajaxScript, "configurationA.txt"); data.concat(temp);
@@ -451,7 +451,7 @@ void handleConfiguration() {
       data.concat(F("<button name='advanced' type='submit' "));
       if (numShown == 0) data.concat("value='enable'>" L_ADV_ENABLE "</button>"); else data.concat("value='disable'>" L_ADV_DISABLE "</button>");
       data.concat("</form>\r\n");
-      data.concat(FPSTR(html_configAxesNotes));
+      if (numShown > 0) data.concat(FPSTR(html_configAxesNotes));
     #endif
 
     #if DISPLAY_RESET_CONTROLS != OFF
@@ -475,7 +475,7 @@ void handleConfiguration() {
   data.concat(temp);
 
   sendHtml(data);
-  sendHtmlDone(data);
+  sendHtmlDone();
 }
 
 void configurationAjaxGet() {

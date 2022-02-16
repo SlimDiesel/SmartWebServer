@@ -3,9 +3,8 @@
 
 #include "Axis.h"
 
-#ifdef AXIS_PRESENT
+#ifdef MOTOR_PRESENT
 
-#include "Axis.h"
 #include "../convert/Convert.h"
 
 bool Axis::command(char *reply, char *command, char *parameter, bool *supressFrame, bool *numericReply, CommandError *commandError) {

@@ -55,7 +55,7 @@
 // ENCODER SUPPORT -----------------------------------------------------------------------------------------------------------------
 // Some of these settings are stored in NV (EEPROM) as the default values when first uploaded.  Later changes below may be
 // ignored unless NV is wiped or you configure to revert to the defaults again at runtime.
-// BC_BISSC SUPPORT IS AN EXPERIMENTAL FEATURE
+// Broadcom AS37-H39B-B (BC_BISSC) support is an experimental feature
 #define ENC_AUTO_SYNC_DEFAULT          ON //     ON, Automatically sync Encoders to OnStep.                                   Option
 #define ENC_AUTO_SYNC_MEMORY          OFF //    OFF, ON Remember automatic sync setting across power cycles.                  Option
 
@@ -73,13 +73,6 @@
 #define AXIS2_ENC_DIFF_LIMIT_FROM     OFF //    OFF, n, (arcsec.) Maximum diff. between encoder/OnStep for sync. from OnStep. Adjust
                                           //         for absolute encoders, leave off when setting Zero, then enable.
 
-// ENCODER RATE CONTROL
-// THIS IS AN EXPERIMENTAL FEATURE
-#define AXIS1_ENC_RATE_CONTROL        OFF //    OFF, ON Rate control for RA high resolution encoder. EQ mounts only.          Infreq
-#define AXIS1_ENC_INTPOL_COS          OFF //    OFF, ON enables cosine compensation feature.                                  Infreq
-#define AXIS1_ENC_RATE_AUTO           OFF //    OFF, n, (Worm period in seconds.) Adjusts avg encoder pulse rate to account   Option
-                                          //         for skew in the average guide rate over the last worm period.            Option
-#define AXIS1_ENC_BIN_AVG             OFF //    OFF, n, (Number of bins.)  Enables binned rolling average feature.            Option
-
 // THAT'S IT FOR USER CONFIGURATION!
 // -------------------------------------------------------------------------------
+#include "Extended.config.h"

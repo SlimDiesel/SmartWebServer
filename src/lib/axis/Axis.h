@@ -217,9 +217,6 @@ class Axis {
     // \param frequency: optional frequency of slew in "measures" (radians, microns, etc.) per second
     CommandError autoSlewRateByDistance(float distance, float frequency = NAN);
 
-    // stops, with deacceleration by distance
-    bool autoSlewRateByDistanceStop();
-
     // auto slew with acceleration in "measures" per second per second
     // \param direction: direction of motion, DIR_FORWARD or DIR_REVERSE
     // \param frequency: optional frequency of slew in "measures" (radians, microns, etc.) per second
@@ -234,6 +231,9 @@ class Axis {
     // emergency stops, with deacceleration by time
     void autoSlewAbort();
 
+    // checks for emergency stop
+    inline bool isAborting() { return autoRate <= AR_RATE_BY_TIME_ABORT; };
+
     // checks if slew is active on this axis
     bool isSlewing();
 
@@ -246,8 +246,8 @@ class Axis {
     // get synchronized state (automatic movement of target at setFrequencySteps() rate)
     inline bool getSynchronized() { return motor->getSynchronized(); }
 
-    // for TMC drivers, etc. report status
-    inline bool fault() { return false; };
+    // report fault status of motor driver, if available
+    inline bool fault() { return motor->getDriverStatus().fault; };
 
     // refresh driver status information maximum frequency is 20ms
     void updateDriverStatus();
