@@ -39,6 +39,9 @@
 #define L_RANGE "range"
 #define L_UNKNOWN "Unknown"
 #define L_FAULT "Fault"
+#define L_POINT "Point"
+#define L_COMPLETE "Complete"
+#define L_INACTIVE "Inactive"
 
 // ---------------------------- Index ----------------------------
 // date/time
@@ -82,10 +85,10 @@
 #define L_PPS_SYNC "PPS Sync"
 
 // tracking
-#define L_REFR_COMP_RA "Refr Comp RA Axis"
-#define L_REFR_COMP_BOTH "Refr Comp Both Axis"
-#define L_FULL_COMP_RA "Full Comp RA Axis"
-#define L_FULL_COMP_BOTH "Full Comp Both Axis"
+#define L_REFR_COMP_RA "refraction comp."
+#define L_REFR_COMP_BOTH "refraction comp. dual axis"
+#define L_FULL_COMP_RA "full comp."
+#define L_FULL_COMP_BOTH "full comp. dual axis"
 #define L_TRACKING "Tracking"
 #define L_TRACKING_RATE "Tracking Rate"
 #define L_CURRENT_MAXRATE "Current MaxRate"
@@ -104,8 +107,8 @@
 #define L_DRIVER_FAULT "Fault"
 
 // misc. errors/workload
-#define L_INTERNAL_TEMP "Controller Internal Temperature"
-#define L_LAST_GENERAL_ERROR "Last General (Background) Error"
+#define L_INTERNAL_TEMP "Controller Temperature"
+#define L_LAST_GENERAL_ERROR "Last Error"
 #define L_WORKLOAD "Workload"
 #define L_WIRELESS_SIGNAL_STRENGTH "Wireless signal strength"
 

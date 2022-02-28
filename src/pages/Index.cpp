@@ -1,24 +1,19 @@
 // -----------------------------------------------------------------------------------
 // The home page, status information
 
-#include <limits.h>
 #include "Index.h"
 #include "../lib/convert/Convert.h"
 
 void handleRoot() {
-  char temp[400] = "";
-  char temp1[120] = "";
-  char temp2[120] = "";
+  char temp[420] = "";
+  char temp1[80] = "";
 
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
-  mountStatus.update(true);
-
   sendHtmlStart();
 
-  String data=FPSTR(html_headB);
-  data.concat(FPSTR(FPSTR(html_headerIdx))); // page refresh
+  String data = FPSTR(html_headB);
   data.concat(FPSTR(html_main_cssB));
   data.concat(FPSTR(html_main_css1));
   data.concat(FPSTR(html_main_css2));
@@ -38,20 +33,22 @@ void handleRoot() {
   sendHtml(data);
 
   // finish the standard http response header
-  data.concat(FPSTR(html_onstep_header1)); data.concat("OnStep");
-  data.concat(FPSTR(html_onstep_header2)); data.concat(firmwareVersion.str);
+  data.concat(FPSTR(html_onstep_header1));
+  data.concat("OnStep");
+  data.concat(FPSTR(html_onstep_header2));
+  data.concat(firmwareVersion.str);
   data.concat(" (OnStep");
-  if (mountStatus.getVersionStr(temp1)) data.concat(temp1); else data.concat("?");
+  if (status.getVersionStr(temp1)) data.concat(temp1); else data.concat("?");
   data.concat(FPSTR(html_onstep_header3));
   data.concat(FPSTR(html_linksStatS));
   data.concat(FPSTR(html_linksCtrlN));
-  if (mountStatus.featureFound()) data.concat(FPSTR(html_linksAuxN));
+  if (status.featureFound) data.concat(FPSTR(html_linksAuxN));
   data.concat(FPSTR(html_linksLibN));
   #if ENCODERS == ON
     data.concat(FPSTR(html_linksEncN));
   #endif
   sendHtml(data);
-  if (mountStatus.pecEnabled()) data.concat(FPSTR(html_linksPecN));
+  if (status.pecEnabled) data.concat(FPSTR(html_linksPecN));
   data.concat(FPSTR(html_linksSetN));
   data.concat(FPSTR(html_linksCfgN));
   data.concat(FPSTR(html_linksSetupN));
@@ -59,7 +56,12 @@ void handleRoot() {
   sendHtml(data);
 
   // OnStep wasn't found, show warning and info.
-  if (!mountStatus.valid()) { data.concat(FPSTR(html_bad_comms_message)); sendHtml(data); sendHtmlDone(); return; }
+  if (!status.valid) { data.concat(FPSTR(html_bad_comms_message)); sendHtml(data); sendHtmlDone(); return; }
+
+  // active ajax page is: handleRootAjax();
+  data.concat("<script>var ajaxPage='index.txt';</script>\n");
+  data.concat(FPSTR(html_ajax_active));
+  sendHtml(data);
 
   data.concat("<div style='width: 27em;'>");
 
@@ -68,269 +70,234 @@ void handleRoot() {
   data.concat(FPSTR(html_settingsBrowserTime));
 
   // UTC Date
-  if (!onStep.command(":GX81#", temp1)) strcpy(temp1, "?");
-  stripNum(temp1);
-  sprintf_P(temp, html_indexDate, temp1);
+  sprintf_P(temp, html_indexDate, state.dateStr);
   data.concat(temp);
 
   // UTC Time
-  if (!onStep.command(":GX80#", temp1)) strcpy(temp1, "?");
-  sprintf_P(temp, html_indexTime, temp1);
+  sprintf_P(temp, html_indexTime, state.timeStr);
   data.concat(temp);
 
   // LST
-  if (!onStep.command(":GS#", temp1)) strcpy(temp1, "?");
-  sprintf_P(temp, html_indexSidereal, temp1);
+  sprintf_P(temp, html_indexSidereal, state.lastStr);
   data.concat(temp);
 
   // Longitude and Latitude
-  if (mountStatus.getVersionMajor() > 3) {
-    if (!onStep.command(":GgH#", temp1)) strcpy(temp1, "?");
-    temp1[10] = 0;
-    if (!onStep.command(":GtH#", temp2)) strcpy(temp2, "?");
-    temp2[9] = 0;
-  } else {
-    if (!onStep.command(":Gg#", temp1)) strcpy(temp1, "?");
-    if (!onStep.command(":Gt#", temp2)) strcpy(temp2, "?");
-  }
-  sprintf_P(temp,html_indexSite,temp1,temp2);
+  sprintf_P(temp, html_indexSite, state.longitudeStr, state.latitudeStr);
   data.concat(temp);
   sendHtml(data);
-
-  // keep numeric latitude for later, in degrees
-  long lat = LONG_MIN;
-  temp2[3] = 0;
-  if (temp2[0] == '+') temp2[0] = '0';
-  lat = atol(temp2);
 
   // Ambient conditions
   #if DISPLAY_WEATHER == ON
-    if (!onStep.command(":GX9A#", temp1)) strcpy(temp1, "?"); else localeTemperature(temp1,temp2);
-    sprintf_P(temp,html_indexTPHD,L_TEMPERATURE ":",temp1,temp2); data.concat(temp);
-    if (!onStep.command(":GX9B#", temp1)) strcpy(temp1, "?"); else localePressure(temp1,temp2);
-    sprintf_P(temp,html_indexTPHD,L_PRESSURE ":",temp1,temp2); data.concat(temp);
-    if (!onStep.command(":GX9C#", temp1)) strcpy(temp1, "?");
-    sprintf_P(temp,html_indexTPHD,L_HUMIDITY ":",temp1,"%"); data.concat(temp);
-    if (!onStep.command(":GX9E#", temp1)) strcpy(temp1, "?"); else localeTemperature(temp1,temp2);
-    sprintf_P(temp,html_indexTPHD,L_DEW_POINT ":",temp1,temp2); data.concat(temp);
+    sprintf_P(temp, html_indexTPHD, L_TEMPERATURE ":", 't', state.siteTemperatureStr); data.concat(temp);
+    sprintf_P(temp, html_indexTPHD, L_PRESSURE ":", 'p', state.sitePressureStr); data.concat(temp);
+    sprintf_P(temp, html_indexTPHD, L_HUMIDITY ":", 'h', state.siteHumidityStr); data.concat(temp);
+    sprintf_P(temp, html_indexTPHD, L_DEW_POINT ":", 'd', state.siteDewPointStr); data.concat(temp);
+    sendHtml(data);
   #endif
 
   // Focuser/telescope temperature
-  if (mountStatus.focuserPresent()) {
-    if (!onStep.command(":Ft#", temp1)) strcpy(temp1, "?"); else localeTemperature(temp1, temp2);
-    sprintf_P(temp, html_indexTPHD, L_TELE_TEMPERATURE ":",temp1,temp2); data.concat(temp);
+  if (status.focuserFound) {
+    sprintf_P(temp, html_indexTPHD, L_TELE_TEMPERATURE ":", 'f', state.telescopeTemperatureStr); data.concat(temp);
   }
-  
+
   data.concat("<br /><b>" L_COORDINATES ":</b><br />");
 
-  #if DISPLAY_HIGH_PRECISION_COORDS == ON
-    // RA,Dec current
-    if (!onStep.command(":GRa#", temp1)) strcpy(temp1, "?");
-    if (!onStep.command(":GDe#", temp2)) strcpy(temp2, "?");
-    sprintf_P(temp,html_indexPosition,temp1,temp2); 
-    data.concat(temp);
+  // RA,Dec current
+  sprintf_P(temp, html_indexPosition, state.indexRaStr, state.indexDecStr); 
+  data.concat(temp);
 
-    // RA,Dec target
-    if (!onStep.command(":Gra#", temp1)) strcpy(temp1, "?");
-    if (!onStep.command(":Gde#", temp2)) strcpy(temp2, "?");
-    sprintf_P(temp,html_indexTarget,temp1,temp2); 
-    data.concat(temp);
-  #else
-    // RA,Dec current
-    if (!onStep.command(":GR#", temp1)) strcpy(temp1, "?");
-    if (!onStep.command(":GD#", temp2)) strcpy(temp2, "?");
-    sprintf_P(temp,html_indexPosition,temp1,temp2); 
-    data.concat(temp);
-
-    // RA,Dec target
-    if (!onStep.command(":Gr#", temp1)) strcpy(temp1, "?");
-    if (!onStep.command(":Gd#", temp2)) strcpy(temp2, "?");
-    sprintf_P(temp,html_indexTarget,temp1,temp2); 
-    data.concat(temp);
-  #endif
-
-  #if ENCODERS == ON
-    // RA,Dec OnStep position
-    double f;
-    f=encoders.getOnStepAxis1(); convert.doubleToDms(temp1, f, true, true, PM_HIGH);
-    f=encoders.getOnStepAxis2(); convert.doubleToDms(temp2, f, true, true, PM_HIGH);
-    sprintf_P(temp,html_indexEncoder1,temp1,temp2);
-    data.concat(temp);
-
-    // RA,Dec encoder position
-    if (encoders.validAxis1()) { f=encoders.getAxis1(); convert.doubleToDms(temp1, f, true, true, PM_HIGH); } else strcpy(temp1," ** " L_FAULT " ** ");
-    if (encoders.validAxis2()) { f=encoders.getAxis2(); convert.doubleToDms(temp2, f, true, true, PM_HIGH); } else strcpy(temp2," ** " L_FAULT " ** ");
-    sprintf_P(temp,html_indexEncoder2,temp1,temp2);
-    data.concat(temp);
-  #endif
-
-  // pier side and meridian flips
-  if ((mountStatus.pierSide()==PierSideFlipWE1) || (mountStatus.pierSide()==PierSideFlipWE2) || (mountStatus.pierSide()==PierSideFlipWE3)) strcpy(temp1,L_MERIDIAN_FLIP_W_TO_E); else
-  if ((mountStatus.pierSide()==PierSideFlipEW1) || (mountStatus.pierSide()==PierSideFlipEW2) || (mountStatus.pierSide()==PierSideFlipEW3)) strcpy(temp1,L_MERIDIAN_FLIP_E_TO_W); else
-  if (mountStatus.pierSide()==PierSideWest) strcpy(temp1,L_WEST); else
-  if (mountStatus.pierSide()==PierSideEast) strcpy(temp1,L_EAST); else
-  if (mountStatus.pierSide()==PierSideNone) strcpy(temp1,L_NONE); else strcpy(temp1,L_UNKNOWN);
-  if (!mountStatus.valid()) strcpy(temp1,"?");
-  if (mountStatus.meridianFlips()) {
-    strcpy(temp2,"On");
-    if (mountStatus.autoMeridianFlips()) strcat(temp2,"</font>, <font class=\"c\">" L_AUTO);
-  } else strcpy(temp2,"Off");
-  if (!mountStatus.valid()) strcpy(temp2,"?");
-  sprintf_P(temp,html_indexPier,temp1,temp2);
+  // RA,Dec target
+  sprintf_P(temp, html_indexTarget, state.targetRaStr, state.targetDecStr); 
   data.concat(temp);
   sendHtml(data);
 
-  if (abs(lat) <= 89) {
-    long ud = LONG_MIN; if (onStep.command(":GX02#", temp1)) { ud = strtol(&temp1[0], NULL, 10); if (lat < 0) ud = -ud; }
-    long lr = LONG_MIN; if (onStep.command(":GX03#", temp1)) { lr = strtol(&temp1[0], NULL, 10); lr = lr/cos(lat/57.295); }
+  #if ENCODERS == ON
+    // RA,Dec OnStep position
+    sprintf_P(temp, html_indexEncoder1, state.angleAxis1Str, state.angleAxis2Str);
+    data.concat(temp);
 
-    if (lat != LONG_MIN && ud != LONG_MIN && lr != LONG_MIN) {
-      data.concat("<br /><b>" L_POLAR_ALIGN ":</b><br />");
+    // RA,Dec encoder position
+    sprintf_P(temp, html_indexEncoder2, state.encAngleAxis1Str, state.encAngleAxis2Str);
+    data.concat(temp);
+    sendHtml(data);
+  #endif
 
-      // default to arc-minutes unless we get close, then arc-seconds
-      char units='"';
-      if (abs(ud) >= 300 || abs(lr) >= 300) { 
-        ud = ud/60.0; lr = lr/60.0;
-        units='\'';
-      }
-
-      if (mountStatus.mountType()==MT_ALTAZM) {
-        strcpy(temp1, L_ZENITH);
-      } else {
-        if (lat<0) strcpy(temp1, L_SCP); else strcpy(temp1, L_NCP);
-      }
-
-      // show direction
-      if ((ud< 0) && (lr< 0)) sprintf_P(temp,html_indexCorPolar,rightTri,(long)(abs(lr)),units,downTri,(long)(abs(ud)),units,temp1); else
-      if ((ud>=0) && (lr< 0)) sprintf_P(temp,html_indexCorPolar,rightTri,(long)(abs(lr)),units,upTri  ,(long)(abs(ud)),units,temp1); else
-      if ((ud< 0) && (lr>=0)) sprintf_P(temp,html_indexCorPolar,leftTri ,(long)(abs(lr)),units,downTri,(long)(abs(ud)),units,temp1); else
-      if ((ud>=0) && (lr>=0)) sprintf_P(temp,html_indexCorPolar,leftTri ,(long)(abs(lr)),units,upTri  ,(long)(abs(ud)),units,temp1);
-
-      data.concat(temp);
-    }
-  }
+  // pier side and meridian flips
+  sprintf_P(temp, html_indexPier, state.pierSideStr, state.meridianFlipStr);
+  data.concat(temp);
   sendHtml(data);
+
+  // polar align
+  if (!isnan(state.latitude) && fabs(state.latitude) <= 89) {
+    data.concat("<br /><b>" L_POLAR_ALIGN ":</b><br />");
+
+    strcpy(temp1, L_ZENITH);
+    if (status.mountType != MT_ALTAZM) { if (state.latitude < 0) strcpy(temp1, L_SCP); else strcpy(temp1, L_NCP); }
+
+    sprintf_P(temp, html_indexCorPolar, state.alignLrStr, state.alignUdStr, temp1);
+    data.concat(temp);
+    sendHtml(data);
+  }
 
   data.concat("<br /><b>" L_OPERATIONS ":</b><br />");
 
   // Park
-  if (mountStatus.parked()) strcpy(temp1,L_PARKED); else strcpy(temp1,L_NOT_PARKED);
-  if (mountStatus.parking()) strcpy(temp1,L_PARKING); else
-  if (mountStatus.parkFail()) strcpy(temp1,L_PARK_FAILED);
-  if (mountStatus.atHome()) strcat(temp1," </font>(<font class=\"c\">" L_AT_HOME "</font>)<font class=\"c\">");
-  if (!mountStatus.valid()) strcpy(temp1,"?");
-  sprintf_P(temp,html_indexPark,temp1);
+  sprintf_P(temp, html_indexPark, state.parkStr);
   data.concat(temp);
 
   // Tracking
-  if (mountStatus.tracking()) strcpy(temp1,L_ON); else strcpy(temp1,L_OFF);
-  if (mountStatus.inGoto()) strcpy(temp1,L_INGOTO);
-  if (!mountStatus.valid()) strcpy(temp1,"?");
-  
-  strcpy(temp2,"</font>(<font class=\"c\">");
-  if (mountStatus.ppsSync()) strcat(temp2,L_PPS_SYNC ", ");
-  if (mountStatus.rateCompensation()==RC_REFR_RA)   strcat(temp2,L_REFR_COMP_RA ", ");
-  if (mountStatus.rateCompensation()==RC_REFR_BOTH) strcat(temp2,L_REFR_COMP_BOTH ", ");
-  if (mountStatus.rateCompensation()==RC_FULL_RA)   strcat(temp2,L_FULL_COMP_RA ", ");
-  if (mountStatus.rateCompensation()==RC_FULL_BOTH) strcat(temp2,L_FULL_COMP_BOTH ", ");
-  if (!mountStatus.valid()) strcpy(temp2,"?");
-  if (temp2[strlen(temp2)-2]==',') { temp2[strlen(temp2)-2]=0; strcat(temp2,"</font>)<font class=\"c\">"); } else strcpy(temp2,"");
-  sprintf_P(temp,html_indexTracking,temp1,temp2);
+  sprintf_P(temp, html_indexTracking, state.trackStr);
   data.concat(temp);
-  sendHtml(data);
-
-  // Tracking rate
-  if ((onStep.command(":GT#", temp1)) && (strlen(temp1)>6)) {
-    double tr=atof(temp1);
-    dtostrf(tr,5,3,temp1);
-    sprintf(temp,"&nbsp;&nbsp;" L_TRACKING_RATE ": <font class=\"c\">%s</font>Hz<br />",temp1);
-    data.concat(temp);
-  }
 
   // Slew speed
-  if ((onStep.command(":GX97#", temp1)) && (strlen(temp1)>2)) {
-    sprintf_P(temp,html_indexMaxSpeed,temp1);
-    data.concat(temp);
-  } else {
-    // fall back to MaxRate display if not supported
-    if ((onStep.command(":GX92#", temp1)) && (onStep.command(":GX93#", temp2))) { 
-      long maxRate=strtol(&temp1[0],NULL,10);
-      long MaxRate=strtol(&temp2[0],NULL,10);
-      sprintf_P(temp,html_indexMaxRate,maxRate,MaxRate);
-    } else sprintf_P(temp,html_indexMaxSpeed,"?");
-    data.concat(temp);
-  }
+  sprintf_P(temp, html_indexMaxSpeed, state.slewSpeedStr);
+  data.concat(temp);
   sendHtml(data);
 
   data.concat("<br /><b>" L_STATE ":</b><br />");
 
   // Driver status
   int numAxes = 2;
-  if (mountStatus.getVersionMajor() >= 10) numAxes = 9;
+  if (status.getVersionMajor() >= 10) numAxes = 9;
   for (int axis = 0; axis < numAxes; axis++) {
-    if (mountStatus.driver[axis].valid) {
-      sprintf(temp, "&nbsp;&nbsp;Axis%d", axis + 1);
-      data.concat(temp);
-      strcpy(temp1,"");
-      if (mountStatus.driver[axis].fault) strcat(temp1, L_DRIVER_FAULT "  ");
-      if (mountStatus.driver[axis].communicationFailure) strcat(temp1, L_COMMS_FAILURE ", ");
-      if (!mountStatus.driver[axis].communicationFailure) {
-        if (mountStatus.driver[axis].standstill) strcat(temp1, L_STANDSTILL ", "); else {
-          if (mountStatus.driver[axis].outputA.openLoad || mountStatus.driver[axis].outputB.openLoad) {
-            strcat(temp1, L_OPEN_LOAD " ");
-            if (mountStatus.driver[axis].outputA.openLoad) strcat(temp1,"A");
-            if (mountStatus.driver[axis].outputB.openLoad) strcat(temp1,"B");
-            strcat(temp1,", ");
-          }
-        }
-        if (mountStatus.driver[axis].outputA.shortToGround || mountStatus.driver[axis].outputB.shortToGround) {
-          strcat(temp1, L_SHORT_GND " ");
-          if (mountStatus.driver[axis].outputA.shortToGround) strcat(temp1,"A");
-          if (mountStatus.driver[axis].outputB.shortToGround) strcat(temp1,"B");
-          strcat(temp1,", ");
-        }
-        if (mountStatus.driver[axis].overTemperature) strcat(temp1, L_SHUTDOWN_OVER " 150C, ");
-        if (mountStatus.driver[axis].overTemperaturePreWarning) strcat(temp1, L_PRE_WARNING " &gt;120C, ");
-      }
-      if (strlen(temp1) > 2) temp1[strlen(temp1) - 2] = 0;
-      if (strlen(temp1) == 0) strcpy(temp1, "Ok");
-      sprintf_P(temp, html_indexDriverStatus, temp1);
+    if (status.driver[axis].valid) {
+      sprintf_P(temp, html_indexDriverStatus, axis + 1, axis, state.driverStatusStr[axis]);
       data.concat(temp);
     }
   }
 
   // MCU Temperature
   #if DISPLAY_INTERNAL_TEMPERATURE == ON
-    if (!onStep.command(":GX9F#", temp1)) strcpy(temp1, "?"); else localeTemperature(temp1, temp2); sprintf_P(temp,html_indexTPHD,L_INTERNAL_TEMP ":",temp1,temp2); data.concat(temp);
+    sprintf_P(temp, html_indexTPHD, L_INTERNAL_TEMP ":", 'm', state.controllerTemperatureStr);
+    data.concat(temp);
   #endif
 
   // General Error
-  if (mountStatus.lastError() != ERR_NONE) strcpy(temp1, "</font><font class=\"y\">"); else strcpy(temp1,"");
-  mountStatus.getLastErrorMessage(temp2);
-  strcat(temp1,temp2);
-  if (!mountStatus.valid()) strcpy(temp1,"?");
-  sprintf_P(temp,html_indexGeneralError,temp1);
+  sprintf_P(temp, html_indexGeneralError, state.lastErrorStr);
   data.concat(temp);
 
   // Loop time
-  if (mountStatus.getVersionMajor() < 10) {
-    if (!onStep.command(":GXFA#", temp1)) strcpy(temp1, "?%");
-    sprintf_P(temp,html_indexWorkload,temp1);
+  if (status.getVersionMajor() < 10) {
+    sprintf_P(temp, html_indexWorkload, state.workLoadStr);
     data.concat(temp);
   }
 
+  // wifi signal strength
   #if OPERATIONAL_MODE == WIFI && DISPLAY_WIFI_SIGNAL_STRENGTH == ON
-    long signal_strength_dbm = WiFi.RSSI();
-    long signal_strength_qty = 2*(signal_strength_dbm + 100);
-    if (signal_strength_qty > 100) signal_strength_qty = 100; 
-    else if (signal_strength_qty < 0) signal_strength_qty = 0;
-    sprintf(temp1,"%lddBm (%ld%%)", signal_strength_dbm, signal_strength_qty);
-    sprintf_P(temp, html_indexSignalStrength, temp1);
+    sprintf_P(temp, html_indexSignalStrength, state.signalStrengthStr);
     data.concat(temp);
   #endif
+
   data.concat("</div><br class=\"clear\" />\r\n");
   data.concat("</div></body></html>");
 
   sendHtml(data);
   sendHtmlDone();
+}
+
+void handleRootAjax() {
+  String data = "";
+  char temp[120] = "";
+
+  sendTextStart();
+
+  if (status.valid) {
+
+    // UTC Date
+    data.concat("date_ut|"); data.concat(state.dateStr); data.concat("\n");
+
+    // UTC Time
+    data.concat("time_ut|"); data.concat(state.timeStr); data.concat("\n");
+
+    // LST
+    data.concat("time_lst|"); data.concat(state.lastStr); data.concat("\n");
+
+    // Longitude and Latitude
+    data.concat("site_long|"); data.concat(state.longitudeStr); data.concat("\n");
+    data.concat("site_lat|"); data.concat(state.latitudeStr); data.concat("\n");
+
+    // Ambient conditions
+    #if DISPLAY_WEATHER == ON
+      data.concat("tphd_t|"); data.concat(state.siteTemperatureStr); data.concat("\n");
+      data.concat("tphd_p|"); data.concat(state.sitePressureStr); data.concat("\n");
+      data.concat("tphd_h|"); data.concat(state.siteHumidityStr); data.concat("\n");
+      data.concat("tphd_d|"); data.concat(state.siteDewPointStr); data.concat("\n");
+    #endif
+
+    // Focuser/telescope temperature
+    if (status.focuserFound) {
+      data.concat("tphd_f|"); data.concat(state.telescopeTemperatureStr); data.concat("\n");
+    }
+
+    // RA,Dec current
+    data.concat("idx_a1|"); data.concat(state.indexRaStr); data.concat("\n");
+    data.concat("idx_a2|"); data.concat(state.indexDecStr); data.concat("\n");
+
+    // RA,Dec target
+    data.concat("tgt_a1|"); data.concat(state.targetRaStr); data.concat("\n");
+    data.concat("tgt_a2|"); data.concat(state.targetDecStr); data.concat("\n");
+
+    #if ENCODERS == ON
+      // RA,Dec OnStep position
+      data.concat("raw_a1|"); data.concat(state.angleAxis1Str); data.concat("\n");
+      data.concat("raw_a2|"); data.concat(state.angleAxis2Str); data.concat("\n");
+
+      // RA,Dec encoder position
+      data.concat("enc_a1|"); data.concat(state.encAngleAxis1Str); data.concat("\n");
+      data.concat("enc_a2|"); data.concat(state.encAngleAxis2Str); data.concat("\n");
+    #endif
+
+    // pier side and meridian flips
+    data.concat("pier_side|"); data.concat(state.pierSideStr); data.concat("\n");
+    data.concat("mdn_flip|"); data.concat(state.meridianFlipStr); data.concat("\n");
+
+    // polar align
+    if (!isnan(state.latitude) && fabs(state.latitude) <= 89) {
+      data.concat("align_lr|"); data.concat(state.alignLrStr); data.concat("\n");
+      data.concat("align_ud|"); data.concat(state.alignUdStr); data.concat("\n");
+    }
+
+    // Park
+    data.concat("park|"); data.concat(state.parkStr); data.concat("\n");
+
+    // Tracking
+    data.concat("track|"); data.concat(state.trackStr); data.concat("\n");
+
+    // Slew speed
+    data.concat("mr_slew|"); data.concat(state.slewSpeedStr); data.concat("\n");
+
+    // Driver status
+    int numAxes = 2;
+    if (status.getVersionMajor() >= 10) numAxes = 9;
+    for (int axis = 0; axis < numAxes; axis++) {
+      if (status.driver[axis].valid) {
+        sprintf(temp, "dvr_stat%d|%s", axis, state.driverStatusStr[axis]);
+        data.concat(temp); data.concat("\n");
+      }
+    }
+
+    // MCU Temperature
+    #if DISPLAY_INTERNAL_TEMPERATURE == ON
+      data.concat("tphd_m|"); data.concat(state.controllerTemperatureStr); data.concat("\n");
+    #endif
+
+    // General Error
+    data.concat("last_err|"); data.concat(state.lastErrorStr); data.concat("\n");
+
+    // Loop time
+    if (status.getVersionMajor() < 10) {
+      data.concat("work_load|"); data.concat(state.workLoadStr); data.concat("\n");
+    }
+
+    // wifi signal strength
+    #if OPERATIONAL_MODE == WIFI && DISPLAY_WIFI_SIGNAL_STRENGTH == ON
+      data.concat("signal|"); data.concat(state.signalStrengthStr); data.concat("\n");
+    #endif
+
+    // Update web-browser time
+    data.concat("call|update_date_time\n");
+  }
+
+  sendText(data);
+  sendTextDone();
 }

@@ -198,13 +198,17 @@ bool OnStepCmd::processCommand(const char* cmd, char* response, long timeOutMs) 
     while ((long)(timeout - millis()) > 0 && b != '#') {
       if (SERIAL_ONSTEP.available()) {
         b = SERIAL_ONSTEP.read();
-        response[responsePos] = b; responsePos++; if (responsePos > 79) responsePos = 79; response[responsePos] = 0;
+        response[responsePos] = b;
+        responsePos++;
+        if (responsePos > 79) responsePos = 79;
+        response[responsePos] = 0;
       }
     }
     #ifdef ESP32
       xSemaphoreGive(xMutex);
     #endif
-    return (response[0] != 0);
+    return response[strlen(response) - 1] == '#';
+//    return (response[0] != 0);
   }
 }
 
@@ -239,7 +243,8 @@ bool OnStepCmd::commandBool(const char* command) {
 char* OnStepCmd::commandString(const char* command) {
   static char response[80] = "";
   bool success = processCommand(command, response, webTimeout);
-  int l = strlen(response) - 1; if (l >= 0 && response[l] == '#') response[l] = 0;
+  int l = strlen(response) - 1;
+  if (l >= 0 && response[l] == '#') response[l] = 0;
   if (!success) strcpy(response,"?");
   return response;
 }

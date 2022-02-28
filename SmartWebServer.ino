@@ -32,7 +32,7 @@
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
 #define FirmwareVersionMinor  "02"
-#define FirmwareVersionPatch  "d"
+#define FirmwareVersionPatch  "f"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -43,7 +43,7 @@ NVS nv;
 #include "src/libApp/bleGamepad/BleGamepad.h"
 #include "src/libApp/encoders/Encoders.h"
 #include "src/pages/Pages.h"
-#include "src/libApp/status/MountStatus.h"
+#include "src/libApp/status/Status.h"
 
 #include "src/lib/ethernet/cmdServer/CmdServer.h"
 #include "src/lib/ethernet/webServer/WebServer.h"
@@ -64,6 +64,24 @@ NVS nv;
 
 void systemServices() {
   nv.poll();
+}
+
+void pollWebSvr() {
+  www.handleClient();
+}
+
+void pollCmdSvr() {
+  #if COMMAND_SERVER == PERSISTENT || COMMAND_SERVER == BOTH
+    persistentCmdSvr1.handleClient(); Y;
+    #if OPERATIONAL_MODE != ETHERNET_W5100
+      persistentCmdSvr2.handleClient(); Y;
+    #endif
+    persistentCmdSvr3.handleClient(); Y;
+  #endif
+
+  #if COMMAND_SERVER == STANDARD || COMMAND_SERVER == BOTH
+    cmdSvr.handleClient(); Y;
+  #endif
 }
 
 void setup(void) {
@@ -205,6 +223,7 @@ Again:
 
   VLF("MSG: Set webpage handlers");
   www.on("/index.htm", handleRoot);
+  www.on("/index.txt", handleRootAjax);
   www.on("/configuration.htm", handleConfiguration);
   www.on("/configurationA.txt", configurationAjaxGet);
   www.on("/settings.htm", handleSettings);
@@ -261,37 +280,29 @@ Again:
     encoders.init();
   #endif
 
-  if (mountStatus.valid()) {
-    mountStatus.update(false);
+  if (status.valid) {
+    status.update(false);
     delay(100);
   }
-    
+
+  state.init();
+
+  VF("MSG: Setup, starting cmd channel polling");
+  VF(" task (rate 10ms priority 2)... ");
+  if (tasks.add(10, 0, true, 2, pollCmdSvr, "cmdPoll")) { VL("success"); } else { VL("FAILED!"); }
+
+  VF("MSG: Setup, starting web server polling");
+  VF(" task (rate 10ms priority 3)... ");
+  if (tasks.add(10, 0, true, 3, pollWebSvr, "webPoll")) { VL("success"); } else { VL("FAILED!"); }
+
   VLF("MSG: SmartWebServer ready");
 }
 
 void loop(void) {
-  #if ENCODERS == ON
-    encoders.poll(); Y;
-  #endif
-  
   #if BLE_GAMEPAD == ON
     bleTimers(); Y;
     bleConnTest(); Y;
   #endif
-
-  #if COMMAND_SERVER == PERSISTENT || COMMAND_SERVER == BOTH
-    persistentCmdSvr1.handleClient(); Y;
-    #if OPERATIONAL_MODE != ETHERNET_W5100
-      persistentCmdSvr2.handleClient(); Y;
-    #endif
-    persistentCmdSvr3.handleClient(); Y;
-  #endif
-
-  #if COMMAND_SERVER == STANDARD || COMMAND_SERVER == BOTH
-    cmdSvr.handleClient(); Y;
-  #endif
-
-  www.handleClient();
 
   tasks.yield();
 }

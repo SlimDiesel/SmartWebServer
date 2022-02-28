@@ -8,7 +8,7 @@
 
   #include <BLEDevice.h>
   #include "../cmd/Cmd.h"
-  #include "../status/MountStatus.h"
+  #include "../status/Status.h"
 
   // ===== GamePad Button Assignments =====
   // commands are blind unless otherwise noted, though only commandBlind() is used to process these since
@@ -199,7 +199,6 @@
       scanTimer = 0;                                          // reinitalize the scan timer
       digitalWrite(LED_STATUS_PIN, LED_STATUS_ON_STATE);      // indicate connected
       VLF("MSG: BLE GamePad Connected");
-      mountStatus.update(false);
     }
     
     void onDisconnect(BLEClient* pclient)
@@ -512,23 +511,21 @@
       
       if (GP_BUTTON_M == buttons)
       {
-        mountStatus.update(false);
-
         // emergency stop
-        if (mountStatus.inGoto())
+        if (status.inGoto)
         {   
           onStep.commandBlind(STOP_ALL);
           continue;
         }
-        else if (mountStatus.atHome() && !mountStatus.tracking())
+        else if (status.atHome && !status.tracking)
         {
           onStep.commandBlind(TRACK_ON);
         }        
-        else if (mountStatus.parked())
+        else if (status.parked)
         {
           onStep.commandBlind(UNPARK);
         }
-        else if (!mountStatus.parked())
+        else if (!status.parked)
         {
           onStep.commandBlind(PARK);            
           onStep.commandBlind(BEEP);     

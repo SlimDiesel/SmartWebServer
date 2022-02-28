@@ -17,14 +17,12 @@
 
     SERIAL_ONSTEP.setTimeout(webTimeout);
     onStep.serialRecvFlush();
-    
-    mountStatus.update();
 
     processEncodersGet();
 
     sendHtmlStart();
 
-    String data=FPSTR(html_headB);
+    String data = FPSTR(html_headB);
 
     // active ajax page is: encAjax();
     data.concat("<script>var ajaxPage='enc.txt';</script>\n");
@@ -33,7 +31,8 @@
     sendHtml(data);
 
     // scripts
-    sprintf_P(temp, html_ajaxScript, "encA.txt"); data.concat(temp);
+    sprintf_P(temp, html_ajaxScript, "encA.txt");
+    data.concat(temp);
     sendHtml(data);
 
     // send a standard http response header
@@ -59,19 +58,21 @@
     sendHtml(data);
 
     // finish the standard http response header
-    data.concat(FPSTR(html_onstep_header1)); data.concat("OnStep");
-    data.concat(FPSTR(html_onstep_header2)); data.concat(firmwareVersion.str);
+    data.concat(FPSTR(html_onstep_header1));
+    data.concat("OnStep");
+    data.concat(FPSTR(html_onstep_header2));
+    data.concat(firmwareVersion.str);
     data.concat(" (OnStep");
-    if (mountStatus.getVersionStr(temp2)) data.concat(temp2); else data.concat("?");
+    if (status.getVersionStr(temp2)) data.concat(temp2); else data.concat("?");
     data.concat(FPSTR(html_onstep_header3));
 
     data.concat(FPSTR(html_linksStatN));
     data.concat(FPSTR(html_linksCtrlN));
-    if (mountStatus.featureFound()) data.concat(FPSTR(html_linksAuxN));
+    if (status.featureFound) data.concat(FPSTR(html_linksAuxN));
     data.concat(FPSTR(html_linksLibN));
     data.concat(FPSTR(html_linksEncS));
     sendHtml(data);
-    if (mountStatus.pecEnabled()) data.concat(FPSTR(html_linksPecN));
+    if (status.pecEnabled) data.concat(FPSTR(html_linksPecN));
     data.concat(FPSTR(html_linksSetN));
     data.concat(FPSTR(html_linksCfgN));
     data.concat(FPSTR(html_linksSetupN));
@@ -79,7 +80,7 @@
     sendHtml(data);
 
     // OnStep wasn't found, show warning and info.
-    if (!mountStatus.valid()) { data.concat(FPSTR(html_bad_comms_message)); sendHtml(data); sendHtmlDone(); return; }
+    if (!status.valid) { data.concat(FPSTR(html_bad_comms_message)); sendHtml(data); sendHtmlDone(); return; }
 
     data.concat("<div style='width: 35em;'>");
 
@@ -139,22 +140,20 @@
 
   void encAjax() {
     String data = "";
-    
+
+    sendTextStart();
+
     data.concat("eas_on|");  if (encoders.autoSync) data.concat("disabled\n"); else data.concat("enabled\n");
     data.concat("eas_off|"); if (encoders.autoSync) data.concat("enabled\n"); else data.concat("disabled\n");
 
-    sendHtml(data);
-    sendHtmlDone();
+    sendText(data);
+    sendTextDone();
   }
 
   void encAjaxGet() {
+    sendTextStart();
     processEncodersGet();
-
-    #if OPERATIONAL_MODE != WIFI
-      www.sendContent("");
-    #else
-      www.send(200, "text/html", "");
-    #endif
+    sendTextDone();
   }
 
   void processEncodersGet() {
