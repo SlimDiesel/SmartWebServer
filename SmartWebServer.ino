@@ -50,6 +50,10 @@ NVS nv;
 #include "src/lib/wifi/cmdServer/CmdServer.h"
 #include "src/lib/wifi/webServer/WebServer.h"
 
+#if DEBUG == PROFILER
+  extern void profiler();
+#endif
+
 #if COMMAND_SERVER == PERSISTENT || COMMAND_SERVER == BOTH
   CmdServer persistentCmdSvr1(9996, 120L*1000L, true);
   #if OPERATIONAL_MODE != ETHERNET_W5100
@@ -176,20 +180,14 @@ Again:
   VF(" task (rate 10ms priority 7)... ");
   if (tasks.add(10, 0, true, 7, systemServices, "SysSvcs")) { VL("success"); } else { VL("FAILED!"); }
 
-  // if requested, cause defaults to be written back into NV
-  if (NV_WIPE == ON) { nv.writeKey(0); }
-
   // get NV ready
   if (!nv.isKeyValid(INIT_NV_KEY)) {
-    VF("MSG: Wipe NV "); V(nv.size); VLF(" Bytes");
-    nv.wipe();
-    VLF("MSG: Wipe NV waiting for commit");
-    nv.wait();
-    VLF("MSG: NV reset to defaults");
-  } else { VLF("MSG: Correct NV key found"); }
+    VF("MSG: NV, invalid key wipe "); V(nv.size); VLF(" bytes");
+    if (nv.verify()) { VLF("MSG: NV, ready for reset to defaults"); }
+  } else { VLF("MSG: NV, correct key found"); }
 
   // get the command and web timeouts
-  if (!nv.isKeyValid()) {
+  if (!nv.hasValidKey()) {
     nv.write(NV_TIMEOUT_CMD, (int16_t)cmdTimeout);
     nv.write(NV_TIMEOUT_WEB, (int16_t)webTimeout);
   }
@@ -210,11 +208,12 @@ Again:
   #endif
 
   // init is done, write the NV key if necessary
-  if (!nv.isKeyValid()) {
-    nv.writeKey((uint32_t)INIT_NV_KEY);
-    nv.ignoreCache(true);
-    if (!nv.isKeyValid(INIT_NV_KEY)) { DLF("ERR: NV reset failed to read back key!"); } else { VLF("MSG: NV reset complete"); }
-    nv.ignoreCache(false);
+  if (!nv.hasValidKey()) {
+    if (!nv.initError) {
+      nv.writeKey((uint32_t)INIT_NV_KEY);
+      nv.wait();
+      if (!nv.isKeyValid(INIT_NV_KEY)) { DLF("ERR: NV, failed to read back key!"); } else { VLF("MSG: NV, reset complete"); }
+    }
   }
 
   #if BLE_GAMEPAD == ON
@@ -294,6 +293,11 @@ Again:
   VF("MSG: Setup, starting web server polling");
   VF(" task (rate 10ms priority 3)... ");
   if (tasks.add(10, 0, true, 3, pollWebSvr, "webPoll")) { VL("success"); } else { VL("FAILED!"); }
+
+  // start task manager debug events
+  #if DEBUG == PROFILER
+    tasks.add(142, 0, true, 7, profiler, "Profilr");
+  #endif
 
   VLF("MSG: SmartWebServer ready");
 }
