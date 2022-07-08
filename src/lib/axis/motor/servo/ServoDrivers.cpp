@@ -20,14 +20,26 @@ ServoDriver::ServoDriver(uint8_t axisNumber, const ServoDriverPins *Pins, const 
 void ServoDriver::init() {
   #if DEBUG == VERBOSE
     VF("MSG: Servo"); V(axisNumber); VF(", init model "); VL(SERVO_DRIVER_NAME[settings.model - SERVO_DRIVER_FIRST]);
+
+    VF("MSG: Servo"); V(axisNumber);
+    if (settings.model == SERVO_II) {
+      V(", pins pwm1="); if (Pins->in1 == OFF) V("OFF"); else V(Pins->in1);
+      V(", pwm2="); if (Pins->in2 == OFF) VF("OFF"); else V(Pins->in2);
+    } else
+    if (settings.model == SERVO_PE) {
+      V(", pins dir="); if (Pins->in1 == OFF) V("OFF"); else V(Pins->in1);
+      V(", pwm="); if (Pins->in2 == OFF) VF("OFF"); else V(Pins->in2);
+    }
+    V(", en="); if (Pins->enable == OFF) VF("OFF"); else V(Pins->enable);
+    VL("");
   #endif
 
   // init default driver control pins
   pinModeEx(Pins->enable, OUTPUT);
   digitalWriteEx(Pins->enable, !Pins->enabledState);
-  pinMode(Pins->in1, OUTPUT);
+  pinModeEx(Pins->in1, OUTPUT);
   digitalWriteF(Pins->in1, Pins->inState1); // either in1 or direction, state should default to inactive
-  pinMode(Pins->in2, OUTPUT);
+  pinModeEx(Pins->in2, OUTPUT);
   digitalWriteF(Pins->in2, Pins->inState2); // either in2 or phase (PWM,) state should default to inactive
 
   // set fastest PWM speed for Teensy processors

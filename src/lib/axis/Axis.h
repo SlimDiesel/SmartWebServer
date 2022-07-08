@@ -20,16 +20,21 @@
 #endif
 #define FRACTIONAL_SEC_US           (lround(1000000.0F/FRACTIONAL_SEC))
 
+// time limit in seconds for slew home refine phases
+#ifndef SLEW_HOME_REFINE_TIME_LIMIT
+#define SLEW_HOME_REFINE_TIME_LIMIT 30
+#endif
+
+// ON blocks all motion when min/max are on the same pin, applies to all axes (mount/rotator/focusers)
+#ifndef LIMIT_SENSE_STRICT
+#define LIMIT_SENSE_STRICT          OFF
+#endif
+
 #include "../../libApp/commands/ProcessCmds.h"
 #include "motor/Motor.h"
 #include "motor/stepDir/StepDir.h"
 #include "motor/servo/Servo.h"
-
-#pragma pack(1)
-typedef struct AxisLimits {
-  float min;
-  float max;
-} AxisLimits;
+#include "motor/oDrive/ODrive.h"
 
 // helpers for step/dir and servo parameters
 #define subdivisions param1
@@ -44,19 +49,32 @@ typedef struct AxisLimits {
 #define porportionalGoto param5
 #define derivativeGoto param6
 
-#define AxisSettingsSize 45
+#pragma pack(1)
+typedef struct AxisLimits {
+  float min;
+  float max;
+} AxisLimits;
+
 typedef struct AxisSettings {
+  double     stepsPerMeasure;
+  int8_t     reverse;
+  AxisLimits limits;
+  float      backlashFreq;
+} AxisSettings;
+
+#define AxisStoredSettingsSize 41
+typedef struct AxisStoredSettings {
   double     stepsPerMeasure;
   int8_t     reverse;
   float      param1, param2, param3, param4, param5, param6;
   AxisLimits limits;
-  float      backlashFreq;
-} AxisSettings;
+} AxisStoredSettings;
 #pragma pack()
 
 typedef struct AxisSense {
   int32_t    homeTrigger;
   int8_t     homeInit;
+  float      homeDistLimit;
   int32_t    minTrigger;
   int32_t    maxTrigger;
   int8_t     minMaxInit;
@@ -76,17 +94,18 @@ typedef struct AxisErrors {
 
 enum AutoRate: uint8_t {AR_NONE, AR_RATE_BY_TIME_ABORT, AR_RATE_BY_TIME_END, AR_RATE_BY_DISTANCE, AR_RATE_BY_TIME_FORWARD, AR_RATE_BY_TIME_REVERSE};
 enum HomingStage: uint8_t {HOME_NONE, HOME_FINE, HOME_SLOW, HOME_FAST};
+enum AxisMeasure: uint8_t {AXIS_MEASURE_UNKNOWN, AXIS_MEASURE_MICRONS, AXIS_MEASURE_DEGREES, AXIS_MEASURE_RADIANS};
 
 class Axis {
   public:
     // constructor
-    Axis(uint8_t axisNumber, const AxisPins *pins, const AxisSettings *settings);
+    Axis(uint8_t axisNumber, const AxisPins *pins, const AxisSettings *settings, const AxisMeasure axisMeasure);
 
     // process axis commands
     bool command(char *reply, char *command, char *parameter, bool *supressFrame, bool *numericReply, CommandError *commandError);
 
     // sets up the driver step/dir/enable pins and any associated driver mode control
-    void init(Motor *motor, void (*callback)());
+    bool init(Motor *motor);
 
     // enables or disables the associated step/dir driver
     void enable(bool value);
@@ -185,6 +204,9 @@ class Axis {
     // get frequency in steps per second
     float getFrequencySteps() { return motor->getFrequencySteps(); }
 
+    // get direction
+    Direction getDirection() { return motor->getDirection(); }
+
     // gets backlash frequency in "measures" (degrees, microns, etc.) per second
     float getBacklashFrequency();
 
@@ -212,18 +234,21 @@ class Axis {
     // set acceleration for emergency stop movement in seconds (for autoSlewStop)
     void setSlewAccelerationTimeAbort(float seconds);
 
-    // slew with rate by distance
+    // auto goto to destination target coordinate
     // \param distance: acceleration distance in measures (to frequency)
     // \param frequency: optional frequency of slew in "measures" (radians, microns, etc.) per second
-    CommandError autoSlewRateByDistance(float distance, float frequency = NAN);
+    CommandError autoGoto(float distance, float frequency = NAN);
 
-    // auto slew with acceleration in "measures" per second per second
+    // auto slew
     // \param direction: direction of motion, DIR_FORWARD or DIR_REVERSE
     // \param frequency: optional frequency of slew in "measures" (radians, microns, etc.) per second
     CommandError autoSlew(Direction direction, float frequency = NAN);
 
-    // slew to home, with acceleration in "measures" per second per second
-    CommandError autoSlewHome(unsigned long timeout);
+     // slew to home using home sensor, with acceleration in "measures" per second per second
+    CommandError autoSlewHome(unsigned long timeout = 0);
+
+    // check if a home sensor is available
+    inline bool hasHomeSense() { return pins->axisSense.homeTrigger != OFF; }
 
     // stops, with deacceleration by time
     void autoSlewStop();
@@ -264,7 +289,9 @@ class Axis {
     // associated motor
     Motor *motor;
 
-    AxisSettings settings;
+    AxisStoredSettings settings;
+
+    bool commonMinMaxSense = false;
 
   private:
     // set frequency in "measures" (degrees, microns, etc.) per second (0 stops motion)
@@ -289,16 +316,17 @@ class Axis {
     // nearest the instrument coordinate
     double unwrapNearest(double value);
 
-    bool decodeAxisSettings(char *s, AxisSettings &a);
+    bool decodeAxisSettings(char *s, AxisStoredSettings &a);
 
-    bool validateAxisSettings(int axisNum, AxisSettings a);
+    bool validateAxisSettings(int axisNum, AxisStoredSettings a);
     
     AxisErrors errors;
     bool lastErrorResult = false;
-    bool commonMinMaxSense = false;
 
     uint8_t axisNumber = 0;
     char axisPrefix[13] = "MSG: Axis_, ";
+    char unitsStr[3] = "?";
+    bool unitsRadians = false;
 
     bool enabled = false;        // enable/disable logical state (disabled is powered down)
     bool limitsCheck = true;     // enable/disable numeric position range limits (doesn't apply to limit switches)
@@ -335,11 +363,12 @@ class Axis {
     float minFreq = 0.0F;
     float slewFreq = 0.0F;
     float maxFreq = 0.0F;
+    float backlashFreq = 0.0F;
 
     AutoRate autoRate = AR_NONE;       // auto slew mode
     float slewAccelerationDistance;    // auto slew rate distance in measures to max rate
-    float slewMpspfs;                  // auto slew rate in measures per second per frac-sec
-    float abortMpspfs;                 // abort slew rate in measures per second per fracsec
+    float slewAccelRateFs;             // auto slew rate in measures per second per frac-sec
+    float abortAccelRateFs;            // abort slew rate in measures per second per frac-sec
     float slewAccelTime = NAN;         // auto slew acceleration time in seconds
     float abortAccelTime = NAN;        // abort slew acceleration time in seconds
 

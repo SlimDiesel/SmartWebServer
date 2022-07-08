@@ -9,7 +9,7 @@ const static int8_t steps[DRIVER_MODEL_COUNT][9] =
 //  1   2   4   8  16  32  64 128 256x
 {{  0,  1,  2,  3,  7,OFF,OFF,OFF,OFF},   // A4988
  {  0,  1,  2,  3,  4,  5,OFF,OFF,OFF},   // DRV8825
- {  0,  0,  0,  0,  0,  0,  0,  0,  0},   // GENERIC
+ {  0,  4,  4,  4,  4,  4,  4,  4,  4},   // GENERIC
  {  0,  1,  2,  3,  4,  5,  6,  7,OFF},   // LV8729
  {  4,  2,  6,  5,  3,  7,OFF,OFF,OFF},   // S109
  {  0,  1,  2,  3,  4,  5,OFF,  6,  7},   // ST820
@@ -18,9 +18,9 @@ const static int8_t steps[DRIVER_MODEL_COUNT][9] =
  {  0,  1,  2,OFF,  3,OFF,OFF,OFF,OFF},   // TMC2130S
  {  8,  7,  6,  5,  4,  3,  2,  1,  0},   // TMC2130
  {OFF,  1,  2,  0,  3,OFF,OFF,OFF,OFF},   // TMC2208S
- {OFF,OFF,OFF,  0,  3,  1,  2,OFF,OFF},   // TMC2209S
- {  8,  7,  6,  5,  4,  3,  2,  1,  0},   // TMC2209U
- {  8,  7,  6,  5,  4,  3,  2,  1,  0}    // TMC5160
+ {OFF,OFF,OFF,  0,  3,  1,  2,OFF,OFF},   // TMC2209S/TMC2226S
+ {  8,  7,  6,  5,  4,  3,  2,  1,  0},   // TMC2209U/TMC2226U
+ {  8,  7,  6,  5,  4,  3,  2,  1,  0},   // TMC5160
 };
 
 const static int32_t DriverPulseWidth[DRIVER_MODEL_COUNT] =
@@ -36,9 +36,9 @@ const static int32_t DriverPulseWidth[DRIVER_MODEL_COUNT] =
   103,   // TMC2130S
   103,   // TMC2130
   103,   // TMC2208S
-  103,   // TMC2209S
-  103,   // TMC2209U
-  103    // TMC5160
+  103,   // TMC2209S/TMC2226S
+  103,   // TMC2209U/TCM2226U
+  103,   // TMC5160
 };
 
 #if DEBUG != OFF
@@ -51,24 +51,24 @@ const static int32_t DriverPulseWidth[DRIVER_MODEL_COUNT] =
     "S109",
     "ST820",
     "TMC2100",
-    "TMC2130 Stand-alone",
+    "TMC2130 legacy",
     "TMC2130 SPI",
-    "TMC2208 Stand-alone",
-    "TMC2209 Stand-alone",
-    "TMC2209 UART",
+    "TMC2208 legacy",
+    "TMC2209 legacy",
+    "TMC2209/TMC2226 UART",
     "TMC5160 SPI"
   };
 #endif
 
 // constructor
-StepDirDriver::StepDirDriver(uint8_t axisNumber, const DriverModePins *Pins, const DriverSettings *Settings) {
+StepDirDriver::StepDirDriver(uint8_t axisNumber, const StepDirDriverPins *Pins, const StepDirDriverSettings *Settings) {
   this->axisNumber = axisNumber;
   this->Pins = Pins;
   settings = *Settings;
 }
 
-// decodes driver model/microstep mode into microstep codes (bit patterns or SPI) and sets up the pin modes
-void StepDirDriver::setParam(float param1, float param2, float param3, float param4, float param5, float param6) {
+// sets driver parameters: microsteps, microsteps goto, hold current, run current, goto current, unused
+void StepDirDriver::setParameters(float param1, float param2, float param3, float param4, float param5, float param6) {
   settings.microsteps = round(param1);
   settings.microstepsGoto = round(param2);
   settings.currentHold = round(param3);
@@ -76,27 +76,9 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
   settings.currentGoto = round(param5);
   UNUSED(param6);
 
-  #if STEP_WAVE_FORM == PULSE
-    // check if platform pulse width (ns) is ok for this stepper driver timing in PULSE mode
-    long pulseWidth = HAL_PULSE_WIDTH;
-    if (axisNumber > 2) pulseWidth = 2000;
-
-    if (DriverPulseWidth[settings.model] == OFF) {
-      VF("WRN: StepDvr"); V(axisNumber); VF(", ");
-      V(DRIVER_NAME[settings.model]); VF(" min. pulse width unknown!");
-    }
-
-    if (DriverPulseWidth[settings.model] > pulseWidth) {
-      DF("ERR: StepDvr"); D(axisNumber); DF(", "); 
-      D(DRIVER_NAME[settings.model]); DF(" min. pulse width "); D(DriverPulseWidth[settings.model]); DF("ns > platform at ");
-      D(pulseWidth); DLF("ns");
-      nv.initError = true;
-    }
-  #endif
-
   if (!isTmcSPI() && !isTmcUART()) {
     if (settings.currentHold != OFF || settings.currentRun != OFF || settings.currentGoto != OFF) {
-      VF("WRN: StepDvr"); V(axisNumber); VLF(", incorrect model for current control, disabling current settings");
+      VF("WRN: StepDir"); V(axisNumber); VLF(", incorrect model for current control - disabling current settings");
       settings.currentHold = OFF;
       settings.currentRun = OFF;
       settings.currentGoto = OFF;
@@ -115,7 +97,7 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
     settings.currentHold = lround(settings.currentRun/2.0F);
   }
 
-  VF("MSG: StepDvr"); V(axisNumber); VF(", init model "); V(DRIVER_NAME[settings.model]);
+  VF("MSG: StepDir"); V(axisNumber); VF(", init model "); V(DRIVER_NAME[settings.model]);
   VF(" u-step mode "); if (settings.microsteps == OFF) { VF("OFF (assuming 1X)"); settings.microsteps = 1; } else { V(settings.microsteps); VF("X"); }
   VF(" (goto mode "); if (settings.microstepsGoto == OFF) { VLF("OFF)"); } else { V(settings.microstepsGoto); VL("X)"); }
 
@@ -125,11 +107,11 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
   microstepRatio = settings.microsteps/settings.microstepsGoto;
 
   if (isTmcSPI() || isTmcUART()) {
-    #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+    #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
       if (settings.decay == OFF) settings.decay = STEALTHCHOP;
       if (settings.decayGoto == OFF) settings.decayGoto = SPREADCYCLE;
       tmcDriver.init(settings.model, Pins->m0, Pins->m1, Pins->m2, Pins->m3, axisNumber);
-      VF("MSG: StepDvr"); V(axisNumber); VF(", TMC ");
+      VF("MSG: StepDir"); V(axisNumber); VF(", TMC ");
       if (settings.currentRun == OFF) {
         VLF("current control OFF (set by Vref)");
       } else {
@@ -139,19 +121,21 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
       }
       if (settings.decay == STEALTHCHOP || settings.decayGoto == STEALTHCHOP) {
         tmcDriver.mode(true, STEALTHCHOP, microstepCode, settings.currentRun, settings.currentRun);
-        VF("MSG: StepDvr"); V(axisNumber); VL(", TMC standstill automatic current calibration");
+        VF("MSG: StepDir"); V(axisNumber); VL(", TMC standstill automatic current calibration");
         delay(100);
       }
       tmcDriver.mode(true, settings.decay, microstepCode, settings.currentRun, settings.currentHold);
     #endif
   } else
   {
+    m0Pin = Pins->m0;
+    m1Pin = Pins->m1;
     if (isDecayOnM2()) { decayPin = Pins->m2; m2Pin = OFF; } else { decayPin = Pins->decay; m2Pin = Pins->m2; }
     pinModeEx(decayPin, OUTPUT);
     digitalWriteEx(decayPin, getDecayPinState(settings.decay));
 
     #if DEBUG == VERBOSE
-      VF("MSG: StepDvr"); V(axisNumber);
+      VF("MSG: StepDir"); V(axisNumber);
       V(", pins m0="); if (Pins->m0 == OFF) V("OFF"); else V(Pins->m0);
       V(", m1="); if (Pins->m1 == OFF) VF("OFF"); else V(Pins->m1);
       V(", m2="); if (m2Pin == OFF) VF("OFF"); else V(m2Pin);
@@ -164,14 +148,28 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
       VL("");
     #endif
 
+    // toggle the M2 pin states if needed, this allows extra flexibility for stand alone stepper drivers
+    if (Pins->m2State == LOW) {
+      if (bitRead(microstepCode, 2)) bitClear(microstepCode, 2); else bitSet(microstepCode, 2);
+      if (bitRead(microstepCodeGoto, 2)) bitClear(microstepCodeGoto, 2); else bitSet(microstepCodeGoto, 2);
+    }
+
     microstepBitCode = microstepCode;
+    microstepBitCodeM0 = bitRead(microstepBitCode, 0);
+    microstepBitCodeM1 = bitRead(microstepBitCode, 1);
+    microstepBitCodeM2 = bitRead(microstepBitCode, 2);
+
     microstepBitCodeGoto = microstepCodeGoto;
-    pinModeEx(Pins->m0, OUTPUT);
-    digitalWriteEx(Pins->m0, bitRead(microstepBitCode, 0));
-    pinModeEx(Pins->m1, OUTPUT);
-    digitalWriteEx(Pins->m1, bitRead(microstepBitCode, 1));
+    microstepBitCodeGotoM0 = bitRead(microstepBitCodeGoto, 0);
+    microstepBitCodeGotoM1 = bitRead(microstepBitCodeGoto, 1);
+    microstepBitCodeGotoM2 = bitRead(microstepBitCodeGoto, 2);
+
+    pinModeEx(m0Pin, OUTPUT);
+    digitalWriteEx(m0Pin, microstepBitCodeM0);
+    pinModeEx(m1Pin, OUTPUT);
+    digitalWriteEx(m1Pin, microstepBitCodeM1);
     pinModeEx(m2Pin, OUTPUT);
-    digitalWriteEx(m2Pin, bitRead(microstepBitCode, 2));
+    digitalWriteEx(m2Pin, microstepBitCodeM2);
   }
 
   // automatically set fault status for known drivers
@@ -192,12 +190,42 @@ void StepDirDriver::setParam(float param1, float param2, float param3, float par
   #else
     if (settings.status == HIGH) pinModeEx(Pins->fault, INPUT);
   #endif
+
+
+  // set mode switching support flags
+  // use low speed mode switch for TMC drivers or high speed otherwise
+  if (isTmcSPI() || isTmcUART()) {
+    modeSwitchAllowed = microstepRatio != 1;
+    modeSwitchFastAllowed = false;
+  } else {
+    modeSwitchAllowed = false;
+    modeSwitchFastAllowed = microstepRatio != 1;
+  }
+
 }
 
 // validate driver parameters
-bool StepDirDriver::validateParam(float param1, float param2, float param3, float param4, float param5, float param6) {
+bool StepDirDriver::validateParameters(float param1, float param2, float param3, float param4, float param5, float param6) {
   int index = axisNumber - 1;
   if (index > 3) index = 3;
+
+  #if STEP_WAVE_FORM == PULSE
+    // check if platform pulse width (ns) is ok for this stepper driver timing in PULSE mode
+    long pulseWidth = HAL_PULSE_WIDTH;
+    if (axisNumber > 2) pulseWidth = 2000;
+
+    if (DriverPulseWidth[settings.model] == OFF) {
+      VF("WRN: StepDirDrivers::validateParameters(), Axis"); V(axisNumber); VF(" ");
+      V(DRIVER_NAME[settings.model]); VF(" min. pulse width unknown!");
+    }
+
+    if (DriverPulseWidth[settings.model] > pulseWidth) {
+      DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" "); 
+      D(DRIVER_NAME[settings.model]); DF(" min. pulse width "); D(DriverPulseWidth[settings.model]); DF("ns > platform at ");
+      D(pulseWidth); DLF("ns");
+      return false;
+    }
+  #endif
 
   int maxCurrent;
   if (settings.model == TMC2130) maxCurrent = 1500; else
@@ -212,38 +240,38 @@ bool StepDirDriver::validateParam(float param1, float param2, float param3, floa
   UNUSED(param6);
 
   if (subdivisions == OFF) {
-    VF("WRN, StepDirDrivers::validateParam(): Axis"); V(axisNumber); VLF(" subdivisions OFF (assuming 1X)");
+    VF("WRN: StepDirDrivers::validateParameters(), Axis"); V(axisNumber); VLF(" subdivisions OFF (assuming 1X)");
     subdivisions = 1;
   }
 
   if (subdivisions <= subdivisionsGoto) {
-    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DLF(" subdivisions must be > subdivisionsGoto");
+    DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DLF(" subdivisions must be > subdivisionsGoto");
     return false;
   }
 
   if (subdivisions != OFF && (subdivisionsToCode(subdivisions) == OFF)) {
-    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad subdivisions="); DL(subdivisions);
+    DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" bad subdivisions="); DL(subdivisions);
     return false;
   }
 
   if (subdivisionsGoto != OFF && (subdivisionsToCode(subdivisionsGoto) == OFF)) {
-    DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad subdivisionsGoto="); DL(subdivisionsGoto);
+    DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" bad subdivisionsGoto="); DL(subdivisionsGoto);
     return false;
   }
 
   if (isTmcSPI() || isTmcUART()) {
     if (currentHold != OFF && (currentHold < 0 || currentHold > maxCurrent)) {
-      DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current hold="); DL(currentHold);
+      DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" bad current hold="); DL(currentHold);
       return false;
     }
 
     if (currentRun != OFF && (currentRun < 0 || currentRun > maxCurrent)) {
-      DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current run="); DL(currentRun);
+      DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" bad current run="); DL(currentRun);
       return false;
     }
 
     if (currentGoto != OFF && (currentGoto < 0 || currentGoto > maxCurrent)) {
-      DF("ERR, StepDirDrivers::validateParam(): Axis"); D(axisNumber); DF(" bad current goto="); DL(currentGoto);
+      DF("ERR: StepDirDrivers::validateParameters(), Axis"); D(axisNumber); DF(" bad current goto="); DL(currentGoto);
       return false;
     }
   }
@@ -251,35 +279,31 @@ bool StepDirDriver::validateParam(float param1, float param2, float param3, floa
   return true;
 }
 
-bool StepDirDriver::modeSwitchAllowed() {
-  return microstepRatio != 1;  
+IRAM_ATTR void StepDirDriver::modeMicrostepTrackingFast() {
+  digitalWriteF(m0Pin, microstepBitCodeM0);
+  digitalWriteF(m1Pin, microstepBitCodeM1);
+  digitalWriteF(m2Pin, microstepBitCodeM2);
 }
 
 void StepDirDriver::modeMicrostepTracking() {
   if (isTmcSPI() || isTmcUART()) {
-    #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+    #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
       tmcDriver.refresh_CHOPCONF(microstepCode);
     #endif
   } else {
-    noInterrupts();
-    digitalWriteEx(Pins->m0, bitRead(microstepBitCode, 0));
-    digitalWriteEx(Pins->m1, bitRead(microstepBitCode, 1));
-    digitalWriteEx(m2Pin, bitRead(microstepBitCode, 2));
-    interrupts();
+    modeMicrostepTrackingFast();
   }
 }
 
 void StepDirDriver::modeDecayTracking() {
   if (isTmcSPI() || isTmcUART()) {
-    #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+    #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
       tmcDriver.mode(true, settings.decay, microstepCode, settings.currentRun, settings.currentHold);
     #endif
   } else {
     if (settings.decay == OFF) return;
     int8_t state = getDecayPinState(settings.decay);
-    noInterrupts();
     digitalWriteEx(decayPin, state);
-    interrupts();
   }
 }
 
@@ -288,18 +312,21 @@ int StepDirDriver::getMicrostepRatio() {
   return microstepRatio;
 }
 
+IRAM_ATTR int StepDirDriver::modeMicrostepSlewingFast() {
+  digitalWriteF(m0Pin, microstepBitCodeGotoM0);
+  digitalWriteF(m1Pin, microstepBitCodeGotoM1);
+  digitalWriteF(m2Pin, microstepBitCodeGotoM2);
+  return microstepRatio;
+}
+
 int StepDirDriver::modeMicrostepSlewing() {
   if (microstepRatio > 1) {
     if (isTmcSPI() || isTmcUART()) {
-      #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+      #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
         tmcDriver.refresh_CHOPCONF(microstepCodeGoto);
       #endif
     } else {
-      noInterrupts();
-      digitalWriteEx(Pins->m0, bitRead(microstepBitCodeGoto, 0));
-      digitalWriteEx(Pins->m1, bitRead(microstepBitCodeGoto, 1));
-      digitalWriteEx(m2Pin, bitRead(microstepBitCodeGoto, 2));
-      interrupts();
+      return modeMicrostepSlewingFast();
     }
   }
   return microstepRatio;
@@ -307,7 +334,7 @@ int StepDirDriver::modeMicrostepSlewing() {
 
 void StepDirDriver::modeDecaySlewing() {
   if (isTmcSPI() || isTmcUART()) {
-    #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+    #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
       int IGOTO = settings.currentGoto;
       if (IGOTO == OFF) IGOTO = settings.currentRun;
       tmcDriver.mode(true, settings.decayGoto, microstepCode, IGOTO, settings.currentHold);
@@ -315,14 +342,12 @@ void StepDirDriver::modeDecaySlewing() {
   } else {
     if (settings.decayGoto == OFF) return;
     int8_t state = getDecayPinState(settings.decayGoto);
-    noInterrupts();
     if (state != OFF) digitalWriteEx(decayPin, state);
-    interrupts();
   }
 }
 
 void StepDirDriver::updateStatus() {
-  #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+  #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
     if (settings.status == ON) {
       if ((long)(millis() - timeLastStatusUpdate) > 200) {
         if (tmcDriver.refresh_DRVSTATUS()) {
@@ -352,7 +377,7 @@ void StepDirDriver::updateStatus() {
           status.fault                 = true;
         }
 
-        #if DEBUG != OFF
+        #if DEBUG == VERBOSE
           if ((status.outputA.shortToGround != lastStatus.outputA.shortToGround) ||
               (status.outputA.openLoad      != lastStatus.outputA.openLoad) ||
               (status.outputB.shortToGround != lastStatus.outputB.shortToGround) ||
@@ -361,7 +386,7 @@ void StepDirDriver::updateStatus() {
               (status.overTemperature       != lastStatus.overTemperature) ||
               (status.standstill            != lastStatus.standstill) ||
               (status.fault                 != lastStatus.fault)) {
-            VF("MSG: StepDvr"); V(axisNumber); VF(", status change ");
+            VF("MSG: StepDir"); V(axisNumber); VF(", status change ");
             VF("SGA"); if (status.outputA.shortToGround) VF("! "); else VF(". "); 
             VF("OLA"); if (status.outputA.openLoad) VF("! "); else VF(". "); 
             VF("SGB"); if (status.outputB.shortToGround) VF("! "); else VF(". "); 
@@ -397,7 +422,7 @@ int8_t StepDirDriver::getDecayPinState(int8_t decay) {
 
 // secondary way to power down not using the enable pin
 void StepDirDriver::power(bool state) {
-  #if defined(TMC_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
+  #if defined(TMC_SPI_DRIVER_PRESENT) || defined(TMC_UART_DRIVER_PRESENT)
     int I_run = 0, I_hold = 0;
     if (state) { I_run = settings.currentRun; I_hold = settings.currentHold; }
     tmcDriver.mode(true, settings.decay, microstepCode, I_run, I_hold);
@@ -408,7 +433,7 @@ void StepDirDriver::power(bool state) {
 
 // checks for TMC SPI driver
 bool StepDirDriver::isTmcSPI() {
-  #ifdef TMC_DRIVER_PRESENT
+  #ifdef TMC_SPI_DRIVER_PRESENT
     if (settings.model == TMC2130 || settings.model == TMC5160) return true; else return false;
   #else
     return false;
@@ -422,6 +447,13 @@ bool StepDirDriver::isTmcUART() {
   #else
     return false;
   #endif
+}
+
+// get the pulse width in nanoseconds, if unknown (-1) returns 2000 nanoseconds
+long StepDirDriver::getPulseWidth() {
+  long ns = DriverPulseWidth[settings.model];
+  if (ns < 0) ns = 2000;
+  return ns;
 }
 
 bool StepDirDriver::isDecayOnM2() {

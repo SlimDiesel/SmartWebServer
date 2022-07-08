@@ -23,10 +23,10 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
       if (axesToRevert & 1) {
         // check that this axis is not set to revert
         if (!(axesToRevert & (1 << axisNumber))) {
-          AxisSettings thisAxis;
-          nv.readBytes(NV_AXIS_SETTINGS_BASE + index*AxisSettingsSize, &thisAxis, sizeof(AxisSettings));
+          AxisStoredSettings thisAxis;
+          nv.readBytes(NV_AXIS_SETTINGS_BASE + index*AxisStoredSettingsSize, &thisAxis, sizeof(AxisStoredSettings));
           if (axisNumber <= 2) {
-            // convert axis1, 2, and 3 into degrees
+            // convert axis1 and axis2 into degrees
             thisAxis.stepsPerMeasure /= RAD_DEG_RATIO;
             thisAxis.limits.min = radToDegF(thisAxis.limits.min);
             thisAxis.limits.max = radToDegF(thisAxis.limits.max);
@@ -49,7 +49,7 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
             (int)round(thisAxis.limits.min),
             (int)round(thisAxis.limits.max),
             ps1, ps2, ps3, ps4, ps5, ps6,
-            motor->getParamTypeCode());
+            motor->getParameterTypeCode());
           *numericReply = false;
         } else *commandError = CE_0;
       } else *commandError = CE_0;
@@ -93,7 +93,7 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
           nv.update(NV_AXIS_SETTINGS_REVERT, axesToRevert);
         } else {
           // :SXA[n],[sssss...]#
-          AxisSettings thisAxis = settings;
+          AxisStoredSettings thisAxis = settings;
           if (decodeAxisSettings(&parameter[3], thisAxis)) {
             if (axisNumber <= 2) {
               // convert axis1, 2 into radians
@@ -110,7 +110,7 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
               // validate settings for step/dir drivers
               if (motor->driverType == STEP_DIR) {
                 if (validateAxisSettings(axisNumber, thisAxis)) {
-                  nv.updateBytes(NV_AXIS_SETTINGS_BASE + (axisNumber - 1)*AxisSettingsSize, &thisAxis, sizeof(AxisSettings));
+                  nv.updateBytes(NV_AXIS_SETTINGS_BASE + (axisNumber - 1)*AxisStoredSettingsSize, &thisAxis, sizeof(AxisStoredSettings));
                 } else *commandError = CE_PARAM_FORM;
               }
             #endif
@@ -118,9 +118,9 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
               // validate settings for servo drivers
               if (motor->driverType == SERVO) {
                 if (validateAxisSettings(axisNumber, thisAxis)) {
-                  nv.updateBytes(NV_AXIS_SETTINGS_BASE + (axisNumber - 1)*AxisSettingsSize, &thisAxis, sizeof(AxisSettings));
+                  nv.updateBytes(NV_AXIS_SETTINGS_BASE + (axisNumber - 1)*AxisStoredSettingsSize, &thisAxis, sizeof(AxisSettings));
                   // make these take effect now
-                  motor->setParam(thisAxis.param1, thisAxis.param2, thisAxis.param3, thisAxis.param4, thisAxis.param5, thisAxis.param6);
+                  motor->setParameters(thisAxis.param1, thisAxis.param2, thisAxis.param3, thisAxis.param4, thisAxis.param5, thisAxis.param6);
                 } else *commandError = CE_PARAM_FORM;
               }
             #endif
@@ -134,7 +134,7 @@ bool Axis::command(char *reply, char *command, char *parameter, bool *supressFra
 }
 
 // convert axis settings string into numeric form
-bool Axis::decodeAxisSettings(char *s, AxisSettings &a) {
+bool Axis::decodeAxisSettings(char *s, AxisStoredSettings &a) {
   if (strcmp(s, "0") != 0) {
     char *ws = s;
     char *conv_end; 
@@ -173,47 +173,51 @@ bool Axis::decodeAxisSettings(char *s, AxisSettings &a) {
 }
 
 // convert axis settings string into numeric form
-bool Axis::validateAxisSettings(int axisNum, AxisSettings a) {
-  if (!motor->validateParam(a.param1, a.param2, a.param3, a.param4, a.param5, a.param6)) return false;
+bool Axis::validateAxisSettings(int axisNum, AxisStoredSettings a) {
+  if (!motor->validateParameters(a.param1, a.param2, a.param3, a.param4, a.param5, a.param6)) return false;
 
-  int index = axisNum - 1;
-  if (index > 3) index = 3;
-  int   MinLimitL[4]   = {    -360,      -90,    -360,     0};
-  int   MinLimitH[4]   = {     -90,        0,       0,   500};
-  int   MaxLimitL[4]   = {      90,        0,       0,     0};
-  int   MaxLimitH[4]   = {     360,       90,     360,   500};
-  float StepsLimitL[4] = {   150.0,    150.0,     5.0, 0.005};
-  float StepsLimitH[4] = {360000.0, 360000.0, 36000.0, 100.0};
+  int minLimitL, minLimitH, maxLimitL, maxLimitH;
+  float stepsLimitL, stepsLimitH;
 
-  if (axisNum <= 2) {
-    // convert axis1 & 2 into degrees
+  if (unitsStr[0] == 'u') {
+    minLimitL = 0;
+    minLimitH = 500000;
+    maxLimitL = 0;
+    maxLimitH = 500000;
+    stepsLimitL = 0.001;
+    stepsLimitH = 1000.0;
+  } else {
+    minLimitL = -360;
+    minLimitH = 360;
+    maxLimitL = -360;
+    maxLimitH = 360;
+    stepsLimitL = 1.0;
+    stepsLimitH = 360000.0;
+  }
+
+  if (unitsRadians) {
     a.stepsPerMeasure /= RAD_DEG_RATIO;
     a.limits.min = radToDegF(a.limits.min);
     a.limits.max = radToDegF(a.limits.max);
-  } else
-  if (axisNum > 3) {
-    // convert axis > 3 min/max into mm
-    a.limits.min = a.limits.min/1000.0F;
-    a.limits.max = a.limits.max/1000.0F;
   }
 
-  if (a.stepsPerMeasure < StepsLimitL[index] || a.stepsPerMeasure > StepsLimitH[index]) {
-    DF("ERR, Axis::validateAxisSettings(): Axis"); D(axisNum); DF(" bad stepsPerMeasure="); DL(a.stepsPerMeasure);
+  if (a.stepsPerMeasure < stepsLimitL || a.stepsPerMeasure > stepsLimitH) {
+    DF("ERR: Axis::validateAxisSettings(), Axis"); D(axisNum); DF(" bad stepsPerMeasure="); DL(a.stepsPerMeasure);
     return false;
   }
 
   if (a.reverse != OFF && a.reverse != ON) {
-    DF("ERR, Axis::validateAxisSettings(): Axis"); D(axisNum+1); DF(" bad reverse="); DL(a.reverse);
+    DF("ERR: Axis::validateAxisSettings(), Axis"); D(axisNum+1); DF(" bad reverse="); DL(a.reverse);
     return false;
   }
 
-  if (a.limits.min < MinLimitL[index] || a.limits.min > MinLimitH[index]) {
-    DF("ERR, Axis::validateAxisSettings(): Axis"); D(axisNum); DF(" bad min="); DL(a.limits.min);
+  if (a.limits.min < minLimitL || a.limits.min > minLimitH) {
+    DF("ERR: Axis::validateAxisSettings(), Axis"); D(axisNum); DF(" bad min="); DL(a.limits.min);
     return false;
   }
 
-  if (a.limits.max < MaxLimitL[index] || a.limits.max > MaxLimitH[index]) {
-    DF("ERR, Axis::validateAxisSettings(): Axis"); D(axisNum); DF(" bad max="); DL(a.limits.max); 
+  if (a.limits.max < maxLimitL || a.limits.max > maxLimitH) {
+    DF("ERR: Axis::validateAxisSettings(), Axis"); D(axisNum); DF(" bad max="); DL(a.limits.max); 
     return false;
   }
 

@@ -35,7 +35,7 @@ bool Ds2413::init() {
         index++;
         #if DEBUG == VERBOSE
           detected = true;
-          VF("DS2413:  0x"); for (int j = 0; j < 8; j++) { if (addressFound[j] < 16) { V("0"); } SERIAL_DEBUG.print(addressFound[j], HEX); }
+          VF("DS2413:  0x"); for (int j = 0; j < 8; j++) { if (addressFound[j] < 16) { V("0"); } if (DEBUG != OFF) SERIAL_DEBUG.print(addressFound[j], HEX); }
           if (index <= 1) { VF(" auto-assigned to FEATURE"); V((index - 1)*2 + 1); V("_PIN"); } else { VF(" not assigned"); }
           VL("");
         #endif
@@ -51,12 +51,23 @@ bool Ds2413::init() {
 
   if (deviceCount > 0) {
     found = true;
-    VF("MSG: Gpio, start DS2413 monitor task (rate 20ms priority 7)... ");
+    VF("MSG: GPIO, start DS2413 monitor task (rate 20ms priority 7)... ");
     if (tasks.add(20, 0, true, 6, ds2413Wrapper, "ds2413")) { VLF("success"); } else { VLF("FAILED!"); }
   } else found = false;
 
   initialized = true;
   return found;
+}
+
+// no command processing
+bool Ds2413::command(char *reply, char *command, char *parameter, bool *supressFrame, bool *numericReply, CommandError *commandError) {
+  UNUSED(reply);
+  UNUSED(command);
+  UNUSED(parameter);
+  UNUSED(supressFrame);
+  UNUSED(numericReply);
+  UNUSED(commandError);
+  return false;
 }
 
 // set GPIO pin (0 or 1) mode for INPUT or OUTPUT (both pins must be in the same mode)

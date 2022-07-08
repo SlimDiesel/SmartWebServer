@@ -6,9 +6,6 @@
 #include "../../../Common.h"
 #include "Drivers.h"
 
-#define SERVO    -1  // general purpose flag for a SERVO driver motor
-#define STEP_DIR -2  // general purpose flag for a STEP_DIR driver motor
-
 #ifdef MOTOR_PRESENT
 
 enum Direction: uint8_t {DIR_NONE, DIR_FORWARD, DIR_REVERSE, DIR_BOTH};
@@ -16,19 +13,25 @@ enum Direction: uint8_t {DIR_NONE, DIR_FORWARD, DIR_REVERSE, DIR_BOTH};
 class Motor {
   public:
     // sets up the motor identification
-    virtual bool init(void (*volatile move)(), void (*volatile moveFF)() = NULL, void (*volatile moveFR)() = NULL);
+    virtual bool init();
 
     // set driver reverse state
     virtual void setReverse(int8_t state);
 
     // get driver parameters type code
-    virtual char getParamTypeCode();
+    virtual char getParameterTypeCode();
+
+    // get driver default parameters
+    void getDefaultParameters(float *param1, float *param2, float *param3, float *param4, float *param5, float *param6);
+
+    // get driver default parameters
+    void setDefaultParameters(float param1, float param2, float param3, float param4, float param5, float param6);
 
     // set driver parameters
-    virtual void setParam(float param1, float param2, float param3, float param4, float param5, float param6);
+    virtual void setParameters(float param1, float param2, float param3, float param4, float param5, float param6);
 
     // validate driver parameters
-    virtual bool validateParam(float param1, float param2, float param3, float param4, float param5, float param6);
+    virtual bool validateParameters(float param1, float param2, float param3, float param4, float param5, float param6);
 
     // sets motor power on/off (if possible)
     virtual void power(bool value);
@@ -52,7 +55,7 @@ class Motor {
     long getInstrumentCoordinateSteps();
 
     // set instrument coordinate, in steps
-    void setInstrumentCoordinateSteps(long value);
+    virtual void setInstrumentCoordinateSteps(long value);
 
     // set instrument park coordinate, in steps
     // should only be called when the axis is not moving
@@ -92,11 +95,11 @@ class Motor {
     // set frequency (+/-) in steps per second negative frequencies move reverse in direction (0 stops motion)
     virtual void setFrequencySteps(float frequency);
 
+    // set backlash frequency in steps per second
+    virtual void setBacklashFrequencySteps(float frequency);
+
     // get tracking mode steps per slewing mode step
     virtual int getStepsPerStepSlewing();
-
-    // set backlash frequency in steps per second
-    void setBacklashFrequencySteps(float frequency);
 
     // get synchronized state (automatic movement of target at setFrequencySteps() rate)
     inline bool getSynchronized() { return synchronized; }
@@ -111,10 +114,12 @@ class Motor {
     virtual void setSlewing(bool state);
 
     // monitor and respond to motor state as required
-    virtual void poll();
+    virtual void poll() {}
 
     int driverType = OFF;
     volatile bool inBacklash = false;          // must be true if within the backlash travel
+
+    volatile uint8_t monitorHandle = 0;        // handle to the axis task monitor
 
   protected:
     // disable backlash compensation, to work properly there must be an enable call to match
@@ -124,7 +129,7 @@ class Motor {
     void enableBacklash();
 
     volatile uint8_t axisNumber = 0;           // axis number for this motor (1 to 9 in OnStepX)
-    char axisPrefix[14] = "MSG: Motor_, ";     // prefix for debug messages
+    char axisPrefix[16];                       // prefix for debug messages
 
     bool enabled = false;                      // enable/disable logical state (disabled is powered down)
     bool synchronized = true;                  // locks movement of axis target with timer rate
@@ -140,11 +145,13 @@ class Motor {
     volatile uint16_t backlashAmountSteps = 0; // the amount of backlash travel
     uint16_t backlashAmountStepsStore;         // temporary storage for the amount of backlash travel
 
-    long originSteps = 0;                      // start position for an autoSlewRateByDistance()
+    long originSteps = 0;                      // start position for an autoGoto()
     volatile long targetSteps = 0;             // where we want the motor
     volatile long motorSteps = 0;              // where the motor is not counting backlash
     volatile long indexSteps = 0;              // for absolute motor position to axis position
     volatile int  step = 1;                    // step size, and for direction control
+
+    float default_param1 = 0, default_param2 = 0, default_param3 = 0, default_param4 = 0, default_param5 = 0, default_param6 = 0;
 
     bool poweredDown = false;
 

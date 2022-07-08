@@ -31,8 +31,8 @@
 
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
-#define FirmwareVersionMinor  "02"
-#define FirmwareVersionPatch  "f"
+#define FirmwareVersionMinor  "04"
+#define FirmwareVersionPatch  "e"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -97,7 +97,7 @@ void setup(void) {
   strcpy(firmwareVersion.str, FirmwareVersionMajor "." FirmwareVersionMinor FirmwareVersionPatch);
 
   // start debug serial port
-  if (DEBUG == ON || DEBUG == VERBOSE) SERIAL_DEBUG.begin(SERIAL_DEBUG_BAUD);
+  if (DEBUG == ON || DEBUG == VERBOSE || DEBUG == PROFILER) SERIAL_DEBUG.begin(SERIAL_DEBUG_BAUD);
   delay(2000);
 
   VF("MSG: SmartWebServer "); VL(firmwareVersion.str);
@@ -214,35 +214,35 @@ Again:
     if (!nv.isKeyValid(INIT_NV_KEY)) { DLF("ERR: NV, failed to read back key!"); } else { VLF("MSG: NV, reset complete"); }
   }
 
-  #if BLE_GAMEPAD == ON
-    bleSetup();
-  #endif
-
   VLF("MSG: Set webpage handlers");
   www.on("/index.htm", handleRoot);
-  www.on("/index.txt", handleRootAjax);
-  www.on("/configuration.htm", handleConfiguration);
-  www.on("/configurationA.txt", configurationAjaxGet);
-  www.on("/settings.htm", handleSettings);
-  www.on("/settingsA.txt", settingsAjaxGet);
-  www.on("/settings.txt", settingsAjax);
+  www.on("/index.txt", indexAjax);
+
+  www.on("/mount.htm", handleMount);
+  www.on("/mount-ajax-get.txt", mountAjaxGet);
+  www.on("/mount-ajax.txt", mountAjax);
+  www.on("/libraryHelp.htm", handleLibraryHelp);
+
+  www.on("/rotator.htm", handleRotator);
+  www.on("/rotator-ajax-get.txt", rotatorAjaxGet);
+  www.on("/rotator-ajax.txt", rotatorAjax);
+
+  www.on("/focuser.htm", handleFocuser);
+  www.on("/focuser-ajax-get.txt", focuserAjaxGet);
+  www.on("/focuser-ajax.txt", focuserAjax);
+
+  www.on("/auxiliary.htm", handleAux);
+  www.on("/auxiliary-ajax-get.txt", auxAjaxGet);
+  www.on("/auxiliary-ajax.txt", auxAjax);
+
   #if ENCODERS == ON
     www.on("/enc.htm", handleEncoders);
-    www.on("/encA.txt", encAjaxGet);
-    www.on("/enc.txt", encAjax);
+    www.on("/enc-ajax-get.txt", encAjaxGet);
+    www.on("/enc-ajax.txt", encAjax);
   #endif
-  www.on("/library.htm", handleLibrary);
-  www.on("/libraryA.txt", libraryAjaxGet);
-  www.on("/library.txt", libraryAjax);
-  www.on("/control.htm", handleControl);
-  www.on("/controlA.txt", controlAjaxGet);
-  www.on("/control.txt", controlAjax);
-  www.on("/auxiliary.htm", handleAux);
-  www.on("/auxiliaryA.txt", auxAjaxGet);
-  www.on("/auxiliary.txt", auxAjax);
-  www.on("/pec.htm", handlePec);
-  www.on("/pec.txt", pecAjax);
+
   www.on("/net.htm", handleNetwork);
+
   www.on("/", handleRoot);
   
   www.onNotFound(handleNotFound);
@@ -295,6 +295,10 @@ Again:
   // start task manager debug events
   #if DEBUG == PROFILER
     tasks.add(142, 0, true, 7, profiler, "Profilr");
+  #endif
+
+  #if BLE_GAMEPAD == ON
+    bleSetup();
   #endif
 
   VLF("MSG: SmartWebServer ready");

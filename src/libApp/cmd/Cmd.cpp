@@ -14,17 +14,15 @@ void OnStepCmd::serialBegin(long baudRate, int swap) {
   firstRun = false;
   if (swap == ON || swap == AUTO_ON) swap = 1; else swap = 0;
   #ifdef ESP32
-    // wemos d1 mini esp32
-    // not swapped: TX and RX on default pins
-    //     swapped: TX on gpio 5 and RX on gpio 23
+    // locate WeMos D1 R32 serial port pins to match WeMos D1 Mini main and swapped port pins
     if (swap) { 
         VLF("MSG: Attempting connect on swapped port");
         delay(500);
-        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, 23, 5); 
+        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, SERIAL_SWAPPED_RX, SERIAL_SWAPPED_TX);
       } else {
         VLF("MSG: Attempting connect on non-swapped port");
         delay(500);
-        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, 1, 3);
+        SERIAL_ONSTEP.begin(baudRate, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
       }
   #else
     VF("MSG: Set baud rate to "); VL(baudRate);
@@ -43,6 +41,8 @@ void OnStepCmd::serialBegin(long baudRate, int swap) {
 }
 
 const char* OnStepCmd::highSpeedCommsStr(long baud) {
+  if (baud == 460800) { return ":SBB#"; }
+  if (baud == 230400) { return ":SBA#"; }
   if (baud == 115200) { return ":SB0#"; }
   if (baud == 57600) { return ":SB1#"; }
   if (baud == 38400) { return ":SB2#"; }
@@ -121,12 +121,12 @@ bool OnStepCmd::processCommand(const char* cmd, char* response, long timeOutMs) 
         // direct focuser select command?
         if (strchr("+-QZHhF", cmd[3])) noResponse = true;
         if (strchr("1234", cmd[3])) noResponse = true;
-        if (strchr("Aap",cmd[3])) shortResponse = true;
+        if (strchr("Aapc",cmd[3])) shortResponse = true;
       } else {
         // normal command
         if (strchr("+-QZHhF", cmd[2])) noResponse = true;
         if (strchr("1234", cmd[2])) noResponse = true;
-        if (strchr("Aap",cmd[2])) shortResponse = true;
+        if (strchr("Aapc",cmd[2])) shortResponse = true;
       }
     } else
     if (cmd[1] == 'r') {

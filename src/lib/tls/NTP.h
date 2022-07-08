@@ -7,7 +7,11 @@
 
 #if defined(TIME_LOCATION_SOURCE) && TIME_LOCATION_SOURCE == NTP
 
-#include <EthernetUdp.h>
+#if OPERATIONAL_MODE == WIFI
+  #include <WiFiUdp.h>
+#else
+  #include <EthernetUdp.h>
+#endif
 #include "../calendars/Calendars.h"
 
 class TimeLocationSource {
@@ -23,12 +27,16 @@ class TimeLocationSource {
 
     // set the RTC's time
     void set(JulianDate ut1);
+    void set(int year, int month, int day, int hour, int minute, int second);
 
     // get the RTC's time
     void get(JulianDate &ut1);
 
     // update from NTP
     void poll();
+
+    // for conversion from UTC to UT1
+    double DUT1 = 0.0L;
 
   private:
     // send an NTP request to the time server at the given address
