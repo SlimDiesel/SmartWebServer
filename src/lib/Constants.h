@@ -23,6 +23,7 @@
 #define SHARED                      -18
 #define STANDARD                    -19
 #define PERSISTENT                  -20
+#define ERRORS_ONLY                 -21
 #define INVALID                     -127
 
 // driver (step/dir interface, usually for stepper motors)
@@ -79,7 +80,6 @@
 #define SERVO_FEEDBACK_LAST         1
 
 // driver (step/dir) and servo, misc.
-#define DEFAULT_POWER_DOWN_TIME     30000  // default standstill time (in ms) to power down an axis (see AXISn_DRIVER_POWER_DOWN)
 #define ODRIVER                     -10    // general purpose flag for a ODRIVE driver motor
 #define SERVO                       -11    // general purpose flag for a SERVO driver motor
 #define STEP_DIR                    -12    // general purpose flag for a STEP_DIR driver motor

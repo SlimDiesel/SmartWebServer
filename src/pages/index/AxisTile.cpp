@@ -19,7 +19,7 @@ bool axisTile(int axis, String &data)
   if (axis == 2 && !status.rotatorFound) return success;
   if (axis >= 3 && !status.focuserPresent[axis - 3]) return success;
 
-  char axisTitleStr[10] = "";
+  char axisTitleStr[32] = "";
   switch (axis) {
     case 0: sprintf(axisTitleStr, "Axis%d RA/Azm", 1); break;
     case 1: sprintf(axisTitleStr, "Axis%d Dec/Alt", 2); break;
@@ -261,19 +261,19 @@ void axisTileGet()
     }
 
     String axisStr = "0";
-    if (!www.arg("a1spd").equals(EmptyStr)) axisStr = "1"; else
-    if (!www.arg("a2spd").equals(EmptyStr)) axisStr = "2"; else
-    if (!www.arg("a3spd").equals(EmptyStr)) axisStr = "3"; else
-    if (!www.arg("a4spu").equals(EmptyStr)) axisStr = "4"; else
-    if (!www.arg("a5spu").equals(EmptyStr)) axisStr = "5"; else
-    if (!www.arg("a6spu").equals(EmptyStr)) axisStr = "6"; else
-    if (!www.arg("a7spu").equals(EmptyStr)) axisStr = "7"; else
-    if (!www.arg("a8spu").equals(EmptyStr)) axisStr = "8"; else
-    if (!www.arg("a9spu").equals(EmptyStr)) axisStr = "9";
+    if (!www.arg("a1spm").equals(EmptyStr)) axisStr = "1"; else
+    if (!www.arg("a2spm").equals(EmptyStr)) axisStr = "2"; else
+    if (!www.arg("a3spm").equals(EmptyStr)) axisStr = "3"; else
+    if (!www.arg("a4spm").equals(EmptyStr)) axisStr = "4"; else
+    if (!www.arg("a5spm").equals(EmptyStr)) axisStr = "5"; else
+    if (!www.arg("a6spm").equals(EmptyStr)) axisStr = "6"; else
+    if (!www.arg("a7spm").equals(EmptyStr)) axisStr = "7"; else
+    if (!www.arg("a8spm").equals(EmptyStr)) axisStr = "8"; else
+    if (!www.arg("a9spm").equals(EmptyStr)) axisStr = "9";
 
     if (status.getVersionMajor() < 10) {
       // send axis settings to OnStep
-      String s1 = www.arg("a" + axisStr + "spd");
+      String s1 = www.arg("a" + axisStr + "spm");
       String s2 = www.arg("a" + axisStr + "ustp");
       String s3 = www.arg("a" + axisStr + "I");
       String s4 = www.arg("a" + axisStr + "rev");
@@ -299,7 +299,7 @@ void axisTileGet()
       }
     } else {
       // send axis settings to OnStepX
-      String s1 = www.arg("a" + axisStr + "spd");
+      String s1 = www.arg("a" + axisStr + "spm");
       String s2 = www.arg("a" + axisStr + "rev");
       String s3 = www.arg("a" + axisStr + "min");
       String s4 = www.arg("a" + axisStr + "max");
@@ -314,7 +314,7 @@ void axisTileGet()
         s10 = www.arg("a" + axisStr + "dGoto");
       } else {
         s6 = www.arg("a" + axisStr + "ustpGoto");
-        s7 = www.arg("a" + axisStr + "Ih");;
+        s7 = www.arg("a" + axisStr + "Ih");
         s8 = www.arg("a" + axisStr + "I");
         s9 = www.arg("a" + axisStr + "Is");
         s10 = "";

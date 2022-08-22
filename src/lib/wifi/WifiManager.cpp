@@ -3,6 +3,12 @@
 
 #if OPERATIONAL_MODE == WIFI
 
+#include "../tasks/OnTask.h"
+
+#if STA_AUTO_RECONNECT == true
+  void reconnectStationWrapper() { wifiManager.reconnectStation(); }
+#endif
+
 bool WifiManager::init() {
   if (!active) {
 
@@ -89,7 +95,7 @@ bool WifiManager::init() {
     if (settings.accessPointEnabled) WiFi.softAPConfig(ap_ip, ap_gw, ap_sn);
 
     // wait for connection
-    if (settings.stationEnabled) for (int i = 0; i < 8; i++) if (WiFi.status() != WL_CONNECTED) delay(1000); else break;
+    if (settings.stationEnabled) { for (int i = 0; i < 8; i++) if (WiFi.status() != WL_CONNECTED) delay(1000); else break; }
 
     if (settings.stationEnabled && WiFi.status() != WL_CONNECTED) {
 
@@ -113,11 +119,28 @@ bool WifiManager::init() {
     } else {
       active = true;
       VLF("MSG: WiFi, initialized");
+
+      #if STA_AUTO_RECONNECT == true
+        if (settings.stationEnabled) {
+          VF("MSG: WiFi, start connection check task (rate 8s priority 7)... ");
+          if (tasks.add(8000, 0, true, 7, reconnectStationWrapper, "WifiChk")) { VLF("success"); } else { VLF("FAILED!"); }
+        }
+      #endif
     }
   }
 
   return active;
 }
+
+#if STA_AUTO_RECONNECT == true
+  void WifiManager::reconnectStation() {
+    if (WiFi.status() != WL_CONNECTED) {
+      VLF("MSG: WiFi, attempting reconnect");
+      WiFi.disconnect();
+      WiFi.reconnect();
+    }
+  }
+#endif
 
 void WifiManager::setStation(int number) {
   if (number >= 1 && number <= WifiStationCount) stationNumber = number;
