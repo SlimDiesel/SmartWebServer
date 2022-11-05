@@ -12,6 +12,8 @@ void handleMount()
 {
   char temp[240] = "";
 
+  state.updateMount(true);
+
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
@@ -56,6 +58,7 @@ void handleMount()
   data.concat(FPSTR(html_script_ajax_shortcuts));
   data.concat(FPSTR(html_script_ajax_date_time_return));
   data.concat(F("<script>var ajaxPage='mount-ajax.txt';</script>\n"));
+  www.sendContentAndClear(data);
   data.concat(FPSTR(html_script_ajax));
   www.sendContentAndClear(data);
 
@@ -130,6 +133,8 @@ void mountAjax()
 
   www.sendContentAndClear(data);
   www.sendContent("");
+
+  state.lastMountPageLoadTime = millis();
 }
 
 void processMountGet()
@@ -143,5 +148,7 @@ void processMountGet()
   trackingTileGet();
   if (status.pecEnabled) pecTileGet();
   limitsTileGet();
+
+  state.lastMountPageLoadTime = millis();
 }
 

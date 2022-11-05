@@ -11,6 +11,8 @@ void processFocuserGet();
 void handleFocuser() {
   char temp[240] = "";
 
+  state.updateFocuser(true);
+
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
@@ -52,6 +54,7 @@ void handleFocuser() {
   data.concat(temp);
   data.concat(FPSTR(html_script_ajax_shortcuts));
   data.concat("<script>var ajaxPage='focuser-ajax.txt';</script>\n");
+  www.sendContentAndClear(data);
   data.concat(FPSTR(html_script_ajax));
   www.sendContentAndClear(data);
 
@@ -96,6 +99,8 @@ void focuserAjax()
 
   www.sendContentAndClear(data);
   www.sendContent("");
+
+  state.lastFocuserPageLoadTime = millis();
 }
 
 void processFocuserGet()
@@ -104,4 +109,6 @@ void processFocuserGet()
   focuserHomeTileGet();
   focuserSlewingTileGet();
   focuserBacklashTcfTileGet();
+
+  state.lastFocuserPageLoadTime = millis();
 }

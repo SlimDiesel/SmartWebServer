@@ -15,6 +15,8 @@ void handleEncoders()
 {
   char temp[400] = "";
 
+  state.updateMount(true);
+
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
@@ -56,10 +58,11 @@ void handleEncoders()
   // scripts
   sprintf_P(temp, html_script_ajax_get, "enc-ajax-get.txt");
   data.concat(temp);
-  www.sendContentAndClear(data);
 
   data.concat("<script>var ajaxPage='enc-ajax.txt';</script>\n");
+  www.sendContentAndClear(data);
   data.concat(FPSTR(html_script_ajax));
+  www.sendContentAndClear(data);
   data.concat("<script>auto2Rate=2;</script>");
   www.sendContentAndClear(data);
 
@@ -77,6 +80,17 @@ void handleEncoders()
   www.sendContent("");
 }
 
+void encAjaxGet()
+{
+  www.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  www.sendHeader("Cache-Control", "no-cache");
+  www.send(200, "text/plain", String());
+
+  processEncodersGet();
+
+  www.sendContent("");
+}
+
 void encAjax()
 {
   String data = "";
@@ -89,17 +103,8 @@ void encAjax()
   encAxisTileAjax(data);
   
   www.sendContent("");
-}
 
-void encAjaxGet()
-{
-  www.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  www.sendHeader("Cache-Control", "no-cache");
-  www.send(200, "text/plain", String());
-
-  processEncodersGet();
-
-  www.sendContent("");
+  state.lastMountPageLoadTime = millis();
 }
 
 void processEncodersGet()
@@ -108,5 +113,7 @@ void processEncodersGet()
 
   syncTileGet();
   encAxisTileGet();
+
+  state.lastMountPageLoadTime = millis();
 }
 #endif

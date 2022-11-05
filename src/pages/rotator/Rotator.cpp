@@ -11,6 +11,8 @@ void processRotatorGet();
 void handleRotator() {
   char temp[240] = "";
 
+  state.updateRotator(true);
+
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
@@ -52,6 +54,7 @@ void handleRotator() {
   data.concat(temp);
   data.concat(FPSTR(html_script_ajax_shortcuts));
   data.concat("<script>var ajaxPage='rotator-ajax.txt';</script>\n");
+  www.sendContentAndClear(data);
   data.concat(FPSTR(html_script_ajax));
   www.sendContentAndClear(data);
 
@@ -96,6 +99,8 @@ void rotatorAjax()
 
   www.sendContentAndClear(data);
   www.sendContent("");
+
+  state.lastRotatorPageLoadTime = millis();
 }
 
 void processRotatorGet()
@@ -104,4 +109,6 @@ void processRotatorGet()
   rotatorSlewingTileGet();
   if (status.derotatorFound) deRotatorTileGet();
   rotatorBacklashTileGet();
+
+  state.lastRotatorPageLoadTime = millis();
 }

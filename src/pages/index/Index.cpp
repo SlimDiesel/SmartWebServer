@@ -11,6 +11,8 @@ void handleRoot()
 {
   char temp[240] = "";
 
+  state.updateController(true);
+
   SERIAL_ONSTEP.setTimeout(webTimeout);
   onStep.serialRecvFlush();
 
@@ -48,7 +50,9 @@ void handleRoot()
 
   // scripts
   data.concat("<script>var ajaxPage='index.txt';</script>\n");
+  www.sendContentAndClear(data);
   data.concat(FPSTR(html_script_ajax));
+  www.sendContentAndClear(data);
   sprintf_P(temp, html_script_ajax_get, "index-ajax-get.txt");
   data.concat(temp);
   www.sendContentAndClear(data);
@@ -129,6 +133,8 @@ void indexAjax() {
 
   www.sendContentAndClear(data);
   www.sendContent("");
+
+  state.lastControllerPageLoadTime = millis();
 }
 
 void processIndexGet()
@@ -148,4 +154,6 @@ void processIndexGet()
   #endif
   statusTileGet();
   axisTileGet();
+
+  state.lastControllerPageLoadTime = millis();
 }
