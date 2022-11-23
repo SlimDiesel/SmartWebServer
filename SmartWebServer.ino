@@ -32,7 +32,7 @@
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
 #define FirmwareVersionMinor  "05"
-#define FirmwareVersionPatch  "a"
+#define FirmwareVersionPatch  "e"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -278,7 +278,7 @@ Again:
     encoders.init();
   #endif
 
-  if (status.valid) {
+  if (status.onStepFound) {
     status.update(false);
     delay(100);
   }
