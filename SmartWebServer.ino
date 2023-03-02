@@ -32,7 +32,7 @@
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
 #define FirmwareVersionMinor  "05"
-#define FirmwareVersionPatch  "h"
+#define FirmwareVersionPatch  "m"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -194,10 +194,6 @@ Again:
   cmdTimeout = nv.readUI(NV_TIMEOUT_CMD);
   webTimeout = nv.readUI(NV_TIMEOUT_WEB);
 
-  // read settings from NV or init. as required
-  VLF("MSG: Init Encoders");
-  encoders.init();
-
   // bring network servers up
   #if OPERATIONAL_MODE == WIFI
     VLF("MSG: Init WiFi");
@@ -206,6 +202,10 @@ Again:
     VLF("MSG: Init Ethernet");
     ethernetManager.init();
   #endif
+
+  // ready encoders
+  VLF("MSG: Initialize Encoders");
+  encoders.init();
 
   // init is done, write the NV key if necessary
   if (!nv.hasValidKey()) {
@@ -273,11 +273,6 @@ Again:
   // clear the serial channel one last time
   onStep.clearSerialChannel();
 
-  #if ENCODERS == ON
-    VLF("MSG: Starting encoders");
-    encoders.init();
-  #endif
-
   if (status.onStepFound) {
     status.update(false);
     delay(100);
@@ -286,12 +281,12 @@ Again:
   state.init();
 
   VF("MSG: Setup, starting cmd channel polling");
-  VF(" task (rate 10ms priority 2)... ");
-  if (tasks.add(10, 0, true, 2, pollCmdSvr, "cmdPoll")) { VL("success"); } else { VL("FAILED!"); }
+  VF(" task (rate 5ms priority 2)... ");
+  if (tasks.add(5, 0, true, 2, pollCmdSvr, "cmdPoll")) { VL("success"); } else { VL("FAILED!"); }
 
   VF("MSG: Setup, starting web server polling");
-  VF(" task (rate 10ms priority 3)... ");
-  if (tasks.add(10, 0, true, 3, pollWebSvr, "webPoll")) { VL("success"); } else { VL("FAILED!"); }
+  VF(" task (rate 20ms priority 3)... ");
+  if (tasks.add(20, 0, true, 3, pollWebSvr, "webPoll")) { VL("success"); } else { VL("FAILED!"); }
 
   // start task manager debug events
   #if DEBUG == PROFILER

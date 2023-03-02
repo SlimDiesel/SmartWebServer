@@ -21,34 +21,26 @@
 #endif
 
 // encoder polling rate in milli-seconds
-#define ENCODER_POLLING_RATE_MS 1500
+#ifndef ENCODER_POLLING_RATE_MS
+  #define ENCODER_POLLING_RATE_MS 500
+#endif
 
 // ----------------------------------------------------------------------------------------------------------------
 // background process position/rate control for encoders 
 
-#define EncoderSettingsSize 88
+#define EncoderSettingsSize 72
 typedef struct EncoderAxis {
-  int32_t zero;
+  uint32_t zero;
+  uint32_t offset;
   int32_t diffTo;
   double ticksPerDeg;
   int16_t reverse;
 } EncoderAxis;
 
-typedef struct EncoderRateControl {
-  volatile int32_t staSamples;
-  volatile int32_t ltaSamples;
-  float rateComp;
-  int32_t intpolPhase;
-  int32_t intpolMagnitude;
-  int32_t propResponse;
-  int32_t minGuide;
-} EncoderRateControl;
-
 typedef struct EncoderSettings {
     bool autoSync;
     EncoderAxis axis1;
     EncoderAxis axis2;
-    EncoderRateControl rateCtrl;
 } EncoderSettings;
 
 class Encoders {
@@ -62,9 +54,8 @@ class Encoders {
       #else
         false,
       #endif
-      {0, AXIS1_ENCODER_DIFF_LIMIT_TO, AXIS1_ENCODER_TICKS_DEG, AXIS1_ENCODER_REVERSE},
-      {0, AXIS2_ENCODER_DIFF_LIMIT_TO, AXIS2_ENCODER_TICKS_DEG, AXIS2_ENCODER_REVERSE},
-      {20, 200, 0.0, 1, 0, 10, 100}
+      {0, 0, AXIS1_ENCODER_DIFF_LIMIT_TO, AXIS1_ENCODER_TICKS_DEG, AXIS1_ENCODER_REVERSE},
+      {0, 0, AXIS2_ENCODER_DIFF_LIMIT_TO, AXIS2_ENCODER_TICKS_DEG, AXIS2_ENCODER_REVERSE}
     };
 
     #if ENCODERS == ON
@@ -73,7 +64,7 @@ class Encoders {
 
       // zero absolute encoders from OnStep's position
       #ifdef ENC_ABSOLUTE
-        void zeroFromOnStep();
+        void originFromOnStep();
       #endif
 
       // automatically sync OnStep to the encoders' position

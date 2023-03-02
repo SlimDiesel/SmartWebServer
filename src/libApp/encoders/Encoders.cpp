@@ -33,8 +33,6 @@ extern NVS nv;
     PulseOnly encAxis1(AXIS1_ENCODER_A_PIN, &servoControlAxis1.directionHint, 1);
   #elif AXIS1_ENCODER == AS37_H39B_B
     As37h39bb encAxis1(AXIS1_ENCODER_A_PIN, AXIS1_ENCODER_B_PIN, 1);
-  #elif AXIS1_ENCODER == SERIAL_BRIDGE
-    SerialBridge encAxis1(1);
   #endif
 
   #if AXIS2_ENCODER == AB
@@ -47,8 +45,6 @@ extern NVS nv;
     PulseOnly encAxis2(AXIS2_ENCODER_A_PIN, &servoControlAxis2.directionHint, 2);
   #elif AXIS2_ENCODER == AS37_H39B_B
     As37h39bb encAxis2(AXIS2_ENCODER_A_PIN, AXIS2_ENCODER_B_PIN, 2);
-  #elif AXIS2_ENCODER == SERIAL_BRIDGE
-    SerialBridge encAxis2(2);
   #endif
 #endif
 
@@ -73,11 +69,11 @@ void Encoders::init() {
     encAxis1.init();
     encAxis2.init();
 
-    #ifdef AXIS1_ENCODER_ABSOLUTE
-      encAxis1.offset = nv.readL(NV_ENCODER_A1_ZERO);
-    #endif
-    #ifdef AXIS2_ENCODER_ABSOLUTE
-      encAxis2.offset = nv.readL(NV_ENCODER_A2_ZERO);
+    #ifdef ENC_ABSOLUTE
+      encAxis1.setOrigin(settings.axis1.zero);
+      encAxis2.setOrigin(settings.axis2.zero);
+      encAxis1.offset = settings.axis1.offset;
+      encAxis2.offset = settings.axis2.offset;
     #endif
 
     VF("MSG: Encoders, start polling task (priority 4)... ");
@@ -88,45 +84,47 @@ void Encoders::init() {
 #if ENCODERS == ON
   void Encoders::syncFromOnStep(bool force) {
     if (Axis1EncDiffFrom == OFF || force || fabs(osAxis1 - enAxis1) <= (double)(Axis1EncDiffFrom/3600.0)) {
-      if (settings.axis1.reverse == ON)
-        encAxis1.write(-osAxis1*settings.axis1.ticksPerDeg);
-      else
-        encAxis1.write(osAxis1*settings.axis1.ticksPerDeg);
+      encAxis1.write(settings.axis1.reverse == ON ? -osAxis1*settings.axis1.ticksPerDeg : osAxis1*settings.axis1.ticksPerDeg);
     }
     if (Axis2EncDiffFrom == OFF || force || fabs(osAxis2 - enAxis2) <= (double)(Axis2EncDiffFrom/3600.0)) {
-      if (settings.axis2.reverse == ON)
-        encAxis2.write(-osAxis2*settings.axis2.ticksPerDeg);
-      else
-        encAxis2.write(osAxis2*settings.axis2.ticksPerDeg);
+      encAxis2.write(settings.axis2.reverse == ON ? -osAxis2*settings.axis2.ticksPerDeg : osAxis2*settings.axis2.ticksPerDeg);
     }
   }
 
   #ifdef ENC_ABSOLUTE
-    void Encoders::zeroFromOnStep() {
-      #ifdef AXIS1_ENCODER_ABSOLUTE
-        if (settings.axis1.reverse == ON)
-          encAxis1.write(-osAxis1*settings.axis1.ticksPerDeg);
-        else
-          encAxis1.write(osAxis1*settings.axis1.ticksPerDeg);
-        nv.update(NV_ENCODER_A1_ZERO, encAxis1.offset);
-      #endif
-      #ifdef AXIS2_ENCODER_ABSOLUTE
-        if (settings.axis2.reverse == ON)
-          encAxis2.write(-osAxis2*settings.axis2.ticksPerDeg);
-        else
-          encAxis2.write(osAxis2*settings.axis2.ticksPerDeg);
-        nv.update(NV_ENCODER_A2_ZERO, encAxis2.offset);
-      #endif
+    void Encoders::originFromOnStep() {
+      encAxis1.origin = 0;
+      encAxis2.origin = 0;
+      encAxis1.offset = 0;
+      encAxis2.offset = 0;
+
+      settings.axis1.zero = (uint32_t)(-encAxis1.read());
+      settings.axis2.zero = (uint32_t)(-encAxis2.read());
+      encAxis1.setOrigin(settings.axis1.zero);
+      encAxis2.setOrigin(settings.axis2.zero);
+
+      syncFromOnStep(true);
+      settings.axis1.offset = encAxis1.offset;
+      settings.axis2.offset = encAxis2.offset;
+
+      nv.updateBytes(NV_ENCODER_SETTINGS_BASE, &settings, sizeof(EncoderSettings));
     }
   #endif
 
   void Encoders::syncToOnStep() {
-    char cmd[40];
-    sprintF(cmd, ":SX40,%0.6f#", enAxis1);
-    onStep.commandBool(cmd);
-    sprintF(cmd, ":SX41,%0.6f#", enAxis2);
-    onStep.commandBool(cmd);
-    onStep.commandBool(":SX42,1#");
+    char cmd[60], cmd1[30];
+    if (status.getVersionMajor() >= 10) {
+      sprintF(cmd, ":SX44,%0.6f,", enAxis1);
+      sprintF(cmd1, "%0.6f#", enAxis2); // 28
+      strcat(cmd, cmd1);
+      onStep.commandBool(cmd);
+    } else {
+      sprintF(cmd, ":SX40,%0.6f#", enAxis1); // 17
+      onStep.commandBool(cmd);
+      sprintF(cmd, ":SX41,%0.6f#", enAxis2); // 17
+      onStep.commandBool(cmd);
+      onStep.commandBool(":SX42,1#"); // 8
+    }
   }
 
   // check encoders and auto sync OnStep if diff is too great
@@ -146,12 +144,12 @@ void Encoders::init() {
     }
 
     long pos = encAxis1.read();
-    if (pos == INT32_MAX) enAxis1Fault = true; else enAxis1Fault = false;
+    if (pos == INT32_MAX) { enAxis1Fault = true; pos = 0; } else enAxis1Fault = false;
     enAxis1 = (double)pos/settings.axis1.ticksPerDeg;
     if (settings.axis1.reverse == ON) enAxis1 = -enAxis1;
 
     pos = encAxis2.read();
-    if (pos == INT32_MAX) enAxis2Fault = true; else enAxis2Fault = false;
+    if (pos == INT32_MAX) { enAxis2Fault = true; pos = 0; } else enAxis2Fault = false;
     enAxis2 = (double)pos/settings.axis2.ticksPerDeg;
     if (settings.axis2.reverse == ON) enAxis2 = -enAxis2;
 

@@ -21,13 +21,13 @@
 
 // polling frequency for monitoring axis motion (default 100X/second) 
 #ifndef FRACTIONAL_SEC
-  #define FRACTIONAL_SEC            100.0F
+#define FRACTIONAL_SEC              100.0F
 #endif
 #define FRACTIONAL_SEC_US           (lround(1000000.0F/FRACTIONAL_SEC))
 
 // time limit in seconds for slew home refine phases
 #ifndef SLEW_HOME_REFINE_TIME_LIMIT
-#define SLEW_HOME_REFINE_TIME_LIMIT 60
+#define SLEW_HOME_REFINE_TIME_LIMIT 120
 #endif
 
 // ON blocks all motion when min/max are on the same pin, applies to all axes (mount/rotator/focusers)
@@ -104,7 +104,7 @@ enum AxisMeasure: uint8_t {AXIS_MEASURE_UNKNOWN, AXIS_MEASURE_MICRONS, AXIS_MEAS
 class Axis {
   public:
     // constructor
-    Axis(uint8_t axisNumber, const AxisPins *pins, const AxisSettings *settings, const AxisMeasure axisMeasure);
+    Axis(uint8_t axisNumber, const AxisPins *pins, const AxisSettings *settings, const AxisMeasure axisMeasure, float targetTolerance = 0.0F);
 
     // process axis commands
     bool command(char *reply, char *command, char *parameter, bool *supressFrame, bool *numericReply, CommandError *commandError);
@@ -217,6 +217,15 @@ class Axis {
 
     // gets backlash frequency in "measures" (degrees, microns, etc.) per second
     float getBacklashFrequency();
+
+    // reverse direction of motion
+    void setReverse(bool reverse) {
+      if (reverse) {
+        if (settings.reverse == ON) motor->setReverse(OFF); else motor->setReverse(ON);
+      } else {
+        motor->setReverse(settings.reverse);
+      }
+    }
 
     // set base movement frequency in "measures" (radians, microns, etc.) per second
     void setFrequencyBase(float frequency);
@@ -374,6 +383,8 @@ class Axis {
     float slewFreq = 0.0F;
     float maxFreq = 0.0F;
     float backlashFreq = 0.0F;
+
+    float targetTolerance = 0.0F;
 
     AutoRate autoRate = AR_NONE;       // auto slew mode
     float slewAccelRateFs;             // auto slew rate in measures per second per frac-sec
