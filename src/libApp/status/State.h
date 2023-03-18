@@ -116,11 +116,15 @@ class State {
     char focuserDeadbandStr[16] = "?";
     bool focuserTcfEnable = false;
     char focuserTcfCoefStr[16] = "?";
+    int focuserGotoRate = 3;
+    char focuserSlewSpeedStr[16] = "?";
 
     char rotatorPositionStr[20] = "?";
     bool rotatorSlewing = false;
     bool rotatorDerotate = false;
     bool rotatorDerotateReverse = false;
+    int rotatorGotoRate = 3;
+    char rotateSlewSpeedStr[20] = "?";
 
    // DynamicJsonDocument *doc;
 
