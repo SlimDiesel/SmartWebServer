@@ -89,10 +89,13 @@ void Encoders::init() {
   void Encoders::syncFromOnStep(bool force) {
     if (Axis1EncDiffFrom == OFF || force || fabs(osAxis1 - enAxis1) <= (double)(Axis1EncDiffFrom/3600.0)) {
       encAxis1.write(settings.axis1.reverse == ON ? -osAxis1*settings.axis1.ticksPerDeg : osAxis1*settings.axis1.ticksPerDeg);
+      settings.axis1.offset = encAxis1.offset;
     }
     if (Axis2EncDiffFrom == OFF || force || fabs(osAxis2 - enAxis2) <= (double)(Axis2EncDiffFrom/3600.0)) {
       encAxis2.write(settings.axis2.reverse == ON ? -osAxis2*settings.axis2.ticksPerDeg : osAxis2*settings.axis2.ticksPerDeg);
+      settings.axis2.offset = encAxis2.offset;
     }
+    nv.updateBytes(NV_ENCODER_SETTINGS_BASE, &settings, sizeof(EncoderSettings));
   }
 
   #ifdef ENC_ABSOLUTE
@@ -157,15 +160,26 @@ void Encoders::init() {
     enAxis2 = (double)pos/settings.axis2.ticksPerDeg;
     if (settings.axis2.reverse == ON) enAxis2 = -enAxis2;
 
+    // determine if goto pointing correction is allowed
+    bool syncDuringGoto = false;
+    if (ENC_SYNC_DURING_GOTO == ON && status.getVersionMajor() * 100 + status.getVersionMinor() >= 1015) syncDuringGoto = true;
+
     if (settings.autoSync && status.onStepFound && !enAxis1Fault && !enAxis2Fault) {
-      if (status.atHome || status.parked || status.aligning || status.syncToEncodersOnly) {
+      if (
+          #ifdef ENC_ABSOLUTE
+            (status.getVersionMajor() * 100 + status.getVersionMinor() < 1015 && (status.atHome || status.parked)) ||
+          #else
+            (status.atHome || status.parked) ||
+          #endif
+          status.syncToEncodersOnly || (!syncDuringGoto && status.aligning))
+      {
         syncFromOnStep();
-        // re-enable normal operation once we're updated here
         if (status.syncToEncodersOnly) onStep.commandBool(":SX43,1#");
       } else
-        if (!status.inGoto && !status.guiding) {
-          if ((fabs(osAxis1 - enAxis1) > (double)(settings.axis1.diffTo/3600.0)) ||
-              (fabs(osAxis2 - enAxis2) > (double)(settings.axis2.diffTo/3600.0))) syncToOnStep();
+      if ((syncDuringGoto || !status.inGoto) && !status.guiding)
+      {
+        if ((fabs(osAxis1 - enAxis1) > (double)(settings.axis1.diffTo/3600.0)) ||
+            (fabs(osAxis2 - enAxis2) > (double)(settings.axis2.diffTo/3600.0))) syncToOnStep();
       }
     }
   }

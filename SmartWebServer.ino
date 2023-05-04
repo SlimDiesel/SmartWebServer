@@ -2,7 +2,7 @@
  * Title       OnStep Smart Web Server
  * by          Howard Dutton
  *
- * Copyright (C) 2016 to 2022 Howard Dutton
+ * Copyright (C) 2016 to 2023 Howard Dutton
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,8 +31,8 @@
 
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
-#define FirmwareVersionMinor  "05"
-#define FirmwareVersionPatch  "p"
+#define FirmwareVersionMinor  "06"
+#define FirmwareVersionPatch  "c"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -55,11 +55,11 @@ NVS nv;
 #endif
 
 #if COMMAND_SERVER == PERSISTENT || COMMAND_SERVER == BOTH
-  CmdServer persistentCmdSvr1(9996, 120L*1000L, true);
+  CmdServer persistentCmdSvr1(9996, 10L*1000L, true);
   #if OPERATIONAL_MODE != ETHERNET_W5100
-    CmdServer persistentCmdSvr2(9997, 120L*1000L, true);
+    CmdServer persistentCmdSvr2(9997, 10L*1000L, true);
   #endif
-  CmdServer persistentCmdSvr3(9998, 120L*1000L, true);
+  CmdServer persistentCmdSvr3(9998, 10L*1000L, true);
 #endif
 
 #if COMMAND_SERVER == STANDARD || COMMAND_SERVER == BOTH
@@ -274,7 +274,7 @@ Again:
   onStep.clearSerialChannel();
 
   if (status.onStepFound) {
-    status.update(false);
+    status.update();
     delay(100);
   }
 
