@@ -32,7 +32,7 @@
 #define Product "Smart Web Server"
 #define FirmwareVersionMajor  "2"
 #define FirmwareVersionMinor  "06"
-#define FirmwareVersionPatch  "c"
+#define FirmwareVersionPatch  "h"
 
 // Use Config.h to configure the SWS to your requirements
 
@@ -63,7 +63,7 @@ NVS nv;
 #endif
 
 #if COMMAND_SERVER == STANDARD || COMMAND_SERVER == BOTH
-  CmdServer cmdSvr(9999, 2L*1000L);
+  CmdServer cmdSvr(9999, 1L*1000L);
 #endif
 
 void systemServices() {
@@ -106,7 +106,7 @@ void setup(void) {
   delay(2000);
 
   // call gamepad BLE initialization
-  #if BLE_GAMEPAD == ON
+  #if (BLE_GAMEPAD == ON && ESP32)
     VLF("MSG: Init BLE");
     bleInit();
   #endif
@@ -293,7 +293,7 @@ Again:
     tasks.add(142, 0, true, 7, profiler, "Profilr");
   #endif
 
-  #if BLE_GAMEPAD == ON
+  #if (BLE_GAMEPAD == ON && ESP32)
     bleSetup();
   #endif
 
@@ -301,7 +301,7 @@ Again:
 }
 
 void loop(void) {
-  #if BLE_GAMEPAD == ON
+  #if (BLE_GAMEPAD == ON && ESP32)
     bleTimers(); Y;
     bleConnTest(); Y;
   #endif
